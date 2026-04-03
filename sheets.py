@@ -90,6 +90,8 @@ def write_post_data(channel_key, posts):
 def write_summary(summaries):
     """요약 시트에 채널별 합산 데이터를 기록합니다.
 
+    같은 날짜+채널 조합이 이미 있으면 덮어쓰고, 없으면 추가합니다.
+
     Args:
         summaries: List[Dict] - 채널별 요약 데이터
     """
@@ -99,6 +101,20 @@ def write_summary(summaries):
     client = _get_client()
     spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
     worksheet = _get_or_create_worksheet(spreadsheet, SHEET_NAMES["summary"], SUMMARY_HEADERS)
+
+    # 기존 데이터에서 오늘 날짜 행 삭제 (중복 방지)
+    today_date = summaries[0].get("날짜", "")
+    if today_date:
+        all_vals = worksheet.get_all_values()
+        rows_to_delete = []
+        for i, row in enumerate(all_vals):
+            if i == 0:
+                continue  # 헤더 스킵
+            if row[0] == today_date:
+                rows_to_delete.append(i + 1)  # 1-based index
+        # 뒤에서부터 삭제 (인덱스 꼬임 방지)
+        for row_idx in reversed(rows_to_delete):
+            worksheet.delete_rows(row_idx)
 
     rows = []
     for s in summaries:
@@ -162,16 +178,28 @@ def write_cross_comparison(cross_data):
         print(f"  [Sheets] 크로스비교 시트에 {len(rows)}행 기록 완료")
 
 
+def _safe_get_all_records(worksheet, headers=None):
+    """헤더 중복 문제를 우회하여 시트 데이터를 읽습니다."""
+    all_vals = worksheet.get_all_values()
+    if len(all_vals) <= 1:
+        return []
+
+    # 헤더 결정: 파라미터로 받거나 첫 번째 행 사용
+    header_row = headers or all_vals[0]
+    # 빈 헤더 처리
+    header_row = [h if h else f"_col{i}" for i, h in enumerate(header_row)]
+
+    records = []
+    for row in all_vals[1:]:
+        record = {}
+        for i, h in enumerate(header_row):
+            record[h] = row[i] if i < len(row) else ""
+        records.append(record)
+    return records
+
+
 def get_previous_data(channel_key, target_date):
-    """전일 데이터를 시트에서 읽어옵니다.
-
-    Args:
-        channel_key: "instagram", "youtube", "tiktok" 또는 "summary"
-        target_date: 조회할 날짜 (YYYY-MM-DD)
-
-    Returns:
-        List[Dict] - 해당 날짜의 데이터
-    """
+    """전일 데이터를 시트에서 읽어옵니다."""
     if not GOOGLE_SHEET_ID:
         return []
 
@@ -181,15 +209,17 @@ def get_previous_data(channel_key, target_date):
 
         if channel_key == "summary":
             sheet_name = SHEET_NAMES["summary"]
+            headers = SUMMARY_HEADERS
         else:
             sheet_name = SHEET_NAMES.get(channel_key, channel_key)
+            headers = POST_HEADERS
 
         try:
             worksheet = spreadsheet.worksheet(sheet_name)
         except gspread.exceptions.WorksheetNotFound:
             return []
 
-        all_data = worksheet.get_all_records()
+        all_data = _safe_get_all_records(worksheet, headers)
         return [row for row in all_data if str(row.get("날짜", "")) == target_date]
 
     except Exception as e:
@@ -198,15 +228,7 @@ def get_previous_data(channel_key, target_date):
 
 
 def get_recent_data(channel_key, days=7):
-    """최근 N일간 데이터를 시트에서 읽어옵니다 (HTML 보고서용).
-
-    Args:
-        channel_key: "instagram", "youtube", "tiktok" 또는 "summary"
-        days: 최근 일수
-
-    Returns:
-        List[Dict] - 최근 데이터
-    """
+    """최근 N일간 데이터를 시트에서 읽어옵니다 (HTML 보고서용)."""
     if not GOOGLE_SHEET_ID:
         return []
 
@@ -216,15 +238,17 @@ def get_recent_data(channel_key, days=7):
 
         if channel_key == "summary":
             sheet_name = SHEET_NAMES["summary"]
+            headers = SUMMARY_HEADERS
         else:
             sheet_name = SHEET_NAMES.get(channel_key, channel_key)
+            headers = POST_HEADERS
 
         try:
             worksheet = spreadsheet.worksheet(sheet_name)
         except gspread.exceptions.WorksheetNotFound:
             return []
 
-        all_data = worksheet.get_all_records()
+        all_data = _safe_get_all_records(worksheet, headers)
 
         from datetime import datetime, timedelta
         cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
