@@ -280,18 +280,24 @@ def _build_channel_card(name, summary, url):
 
 
 def _build_post_cards(posts, platform):
-    """게시물 카드 그리드"""
+    """게시물 카드 그리드 (정렬 버튼 포함)"""
     if not posts:
         return "<p class='empty'>데이터가 없습니다.</p>"
 
     show_save = platform == "instagram"
+    grid_id = f"grid-{platform}"
+
+    # 기본 정렬: 조회수 높은 순
+    sorted_posts = sorted(posts, key=lambda x: _safe_num(x.get("조회수", 0)), reverse=True)
+
     cards = ""
-    for i, p in enumerate(sorted(posts, key=lambda x: _safe_num(x.get("조회수", 0)), reverse=True)):
+    for i, p in enumerate(sorted_posts):
         link = p.get("링크", "")
         caption = p.get("캡션", "")[:30]
         pub = p.get("게시일", "")
         thumb = p.get("썸네일", "")
-        views = _fmt(p.get("조회수", 0))
+        views_raw = _safe_num(p.get("조회수", 0))
+        views = _fmt(views_raw)
         likes = _fmt(p.get("좋아요", 0))
         comments = _fmt(p.get("댓글", 0))
         shares = _fmt(p.get("공유", 0))
@@ -299,15 +305,14 @@ def _build_post_cards(posts, platform):
         if saved != "-":
             saved = _fmt(saved)
         engagement = f"{_safe_num(p.get('참여율(%)', 0)):.1f}%"
-        rank = i + 1
 
         thumb_html = f'<img src="{thumb}" alt="" loading="lazy">' if thumb else '<div class="no-thumb">No Image</div>'
         save_row = f'<div class="post-metric"><span class="pm-label">저장</span><span class="pm-value">{saved}</span></div>' if show_save else ""
 
         cards += f"""
-        <a href="{link}" target="_blank" class="post-card">
+        <a href="{link}" target="_blank" class="post-card" data-views="{int(views_raw)}" data-date="{pub}">
             <div class="post-thumb">
-                <span class="post-rank">#{rank}</span>
+                <span class="post-rank"></span>
                 {thumb_html}
             </div>
             <div class="post-info">
@@ -324,7 +329,14 @@ def _build_post_cards(posts, platform):
             </div>
         </a>"""
 
-    return f'<div class="post-grid">{cards}</div>'
+    sort_buttons = f"""
+    <div class="sort-bar">
+        <span class="sort-label">정렬:</span>
+        <button class="sort-btn active" onclick="sortCards('{grid_id}','views',this)">조회수 높은 순</button>
+        <button class="sort-btn" onclick="sortCards('{grid_id}','date',this)">최근 업로드 순</button>
+    </div>"""
+
+    return f'{sort_buttons}<div class="post-grid" id="{grid_id}">{cards}</div>'
 
 
 def _build_cross_table(cross_data):
@@ -511,6 +523,13 @@ td a:hover {{ text-decoration:underline; }}
 .week-btn:disabled {{ opacity:0.3; cursor:not-allowed; }}
 .week-btn:disabled:hover {{ background:none; color:#667eea; border-color:#ddd; }}
 
+/* 정렬 바 */
+.sort-bar {{ display:flex; align-items:center; gap:8px; margin-bottom:14px; }}
+.sort-label {{ font-size:12px; color:#999; }}
+.sort-btn {{ padding:5px 14px; border:1px solid #ddd; border-radius:16px; background:#fff; font-size:12px; color:#666; cursor:pointer; transition:all 0.15s; }}
+.sort-btn:hover {{ border-color:#667eea; color:#667eea; }}
+.sort-btn.active {{ background:#667eea; color:#fff; border-color:#667eea; }}
+
 .empty {{ color:#aaa; text-align:center; padding:40px; }}
 
 /* 플랫폼 헤더 */
@@ -660,6 +679,38 @@ function openTab(evt, tabId) {{
     evt.currentTarget.classList.add('active');
     setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
 }}
+
+// ── 카드 정렬 ──
+function sortCards(gridId, sortBy, btn) {{
+    const grid = document.getElementById(gridId);
+    const cards = Array.from(grid.querySelectorAll('.post-card'));
+
+    // 버튼 활성화
+    btn.parentElement.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    cards.sort((a, b) => {{
+        if (sortBy === 'views') {{
+            return parseInt(b.dataset.views || 0) - parseInt(a.dataset.views || 0);
+        }} else {{
+            return (b.dataset.date || '').localeCompare(a.dataset.date || '');
+        }}
+    }});
+
+    cards.forEach((card, i) => {{
+        card.querySelector('.post-rank').textContent = '#' + (i + 1);
+        grid.appendChild(card);
+    }});
+}}
+
+// 초기 랭크 번호 설정
+document.addEventListener('DOMContentLoaded', () => {{
+    document.querySelectorAll('.post-grid').forEach(grid => {{
+        grid.querySelectorAll('.post-rank').forEach((rank, i) => {{
+            rank.textContent = '#' + (i + 1);
+        }});
+    }});
+}});
 
 // ── 주간 네비게이션 ──
 const SUMMARY_DATA = {summary_json};
