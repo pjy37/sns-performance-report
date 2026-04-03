@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SNS 성과 보고서 - 2026-04-03</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif; background:#f0f2f5; color:#1a1a2e; font-size:14px; }
+
+/* 헤더 */
+.header { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:#fff; padding:32px 24px; text-align:center; }
+.header h1 { font-size:26px; font-weight:700; }
+.header .subtitle { opacity:0.85; margin-top:6px; font-size:15px; }
+.header .links { margin-top:14px; display:flex; justify-content:center; gap:16px; flex-wrap:wrap; }
+.header .links a { color:#fff; text-decoration:none; background:rgba(255,255,255,0.18); padding:6px 16px; border-radius:20px; font-size:13px; transition:background 0.2s; }
+.header .links a:hover { background:rgba(255,255,255,0.35); }
+
+/* 탭 네비게이션 */
+.tab-nav { display:flex; background:#fff; border-bottom:2px solid #e8e8e8; padding:0 24px; position:sticky; top:0; z-index:100; box-shadow:0 2px 4px rgba(0,0,0,0.04); overflow-x:auto; }
+.tab-btn { padding:14px 24px; cursor:pointer; border:none; background:none; font-size:14px; font-weight:600; color:#888; border-bottom:3px solid transparent; transition:all 0.2s; white-space:nowrap; }
+.tab-btn:hover { color:#333; }
+.tab-btn.active { color:#667eea; border-bottom-color:#667eea; }
+
+/* 탭 콘텐츠 */
+.tab-content { display:none; max-width:1200px; margin:0 auto; padding:24px; }
+.tab-content.active { display:block; }
+
+/* 섹션 */
+.section { background:#fff; border-radius:12px; padding:24px; margin-bottom:20px; box-shadow:0 1px 4px rgba(0,0,0,0.06); }
+.section h2 { font-size:18px; margin-bottom:16px; padding-bottom:10px; border-bottom:2px solid #f0f0f0; color:#333; }
+.section h3 { font-size:15px; color:#555; margin:16px 0 10px; }
+
+/* 채널 카드 */
+.channel-cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:16px; margin-bottom:20px; }
+.channel-card { background:#fff; border-radius:12px; padding:20px; box-shadow:0 1px 4px rgba(0,0,0,0.06); }
+.card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+.card-header h3 { font-size:17px; margin:0; }
+.card-link { font-size:12px; color:#667eea; text-decoration:none; }
+.card-link:hover { text-decoration:underline; }
+.card-stats { display:flex; gap:12px; flex-wrap:wrap; }
+.stat { text-align:center; flex:1; min-width:60px; }
+.stat-value { display:block; font-size:20px; font-weight:700; color:#1a1a2e; }
+.stat-label { display:block; font-size:11px; color:#999; margin-top:2px; }
+
+/* Top 성장 */
+.top-item { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #f5f5f5; }
+.top-rank { background:#667eea; color:#fff; width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0; }
+.top-channel { font-weight:700; font-size:13px; flex-shrink:0; }
+.top-caption { color:#555; flex:1; font-size:13px; }
+.top-growth { color:#27ae60; font-weight:600; font-size:13px; flex-shrink:0; }
+
+/* 테이블 */
+table { width:100%; border-collapse:collapse; font-size:13px; }
+th { background:#f8f9fb; font-weight:600; color:#555; padding:10px 12px; text-align:right; border-bottom:2px solid #eee; }
+td { padding:9px 12px; text-align:right; border-bottom:1px solid #f0f0f0; }
+th:first-child, td:first-child { text-align:left; }
+tr:hover td { background:#fafbff; }
+td a { color:#667eea; text-decoration:none; }
+td a:hover { text-decoration:underline; }
+.cross-table th { font-size:12px; padding:8px 10px; }
+
+/* 게시물 카드 그리드 */
+.post-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:16px; }
+.post-card { display:block; background:#fff; border:1px solid #eee; border-radius:10px; overflow:hidden; text-decoration:none; color:inherit; transition:transform 0.15s, box-shadow 0.15s; }
+.post-card:hover { transform:translateY(-3px); box-shadow:0 6px 16px rgba(0,0,0,0.1); }
+.post-thumb { position:relative; width:100%; padding-top:100%; background:#f0f0f0; overflow:hidden; }
+.post-thumb img { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; }
+.post-thumb .no-thumb { position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:#ccc; font-size:13px; }
+.post-rank { position:absolute; top:8px; left:8px; background:rgba(0,0,0,0.65); color:#fff; padding:3px 8px; border-radius:6px; font-size:12px; font-weight:700; z-index:2; }
+.post-info { padding:14px; }
+.post-caption { font-size:13px; font-weight:600; color:#222; line-height:1.4; margin-bottom:4px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.post-date { font-size:11px; color:#aaa; margin-bottom:10px; }
+.post-metrics { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; }
+.post-metric { text-align:center; }
+.pm-label { display:block; font-size:10px; color:#999; }
+.pm-value { display:block; font-size:14px; font-weight:700; color:#333; }
+
+/* 주간 네비게이션 */
+.week-btn { background:none; border:1px solid #ddd; padding:6px 16px; border-radius:6px; cursor:pointer; font-size:13px; color:#667eea; font-weight:600; transition:all 0.15s; }
+.week-btn:hover { background:#667eea; color:#fff; border-color:#667eea; }
+.week-btn:disabled { opacity:0.3; cursor:not-allowed; }
+.week-btn:disabled:hover { background:none; color:#667eea; border-color:#ddd; }
+
+.empty { color:#aaa; text-align:center; padding:40px; }
+
+/* 플랫폼 헤더 */
+.platform-header { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+.platform-header .dot { width:12px; height:12px; border-radius:50%; }
+.platform-header h2 { border:none; padding:0; margin:0; }
+.platform-header a { font-size:12px; color:#667eea; text-decoration:none; margin-left:auto; }
+
+/* 푸터 */
+.footer { text-align:center; padding:24px; color:#bbb; font-size:12px; }
+</style>
+</head>
+<body>
+
+<!-- 헤더 -->
+<div class="header">
+    <h1>유아연 SNS 성과 보고서</h1>
+    <div class="subtitle">2026-04-03 기준 | 자동 생성 리포트</div>
+    <div class="links">
+        <a href="https://www.instagram.com/zn.co.kr_/" target="_blank">Instagram</a>
+        <a href="https://www.youtube.com/@%EC%9C%A0%EC%95%84%EC%97%B0-v8w" target="_blank">YouTube</a>
+        <a href="https://www.tiktok.com/@zn.co.kr_?is_from_webapp=1&sender_device=pc" target="_blank">TikTok</a>
+        <a href="https://docs.google.com/spreadsheets/d/1A3InkFr2YXJWy6_B0FKWsglMcrlSrC4CUSdi4xet788" target="_blank">Google Sheets</a>
+    </div>
+</div>
+
+<!-- 탭 네비게이션 -->
+<div class="tab-nav">
+    <button class="tab-btn active" onclick="openTab(event,'tab-overview')">통합 보고서</button>
+    <button class="tab-btn" onclick="openTab(event,'tab-instagram')" style="color:#E1306C">Instagram</button>
+    <button class="tab-btn" onclick="openTab(event,'tab-youtube')" style="color:#FF0000">YouTube</button>
+    <button class="tab-btn" onclick="openTab(event,'tab-tiktok')">TikTok</button>
+    <button class="tab-btn" onclick="openTab(event,'tab-cross')">크로스 비교</button>
+</div>
+
+<!-- ═══════ 통합 보고서 ═══════ -->
+<div id="tab-overview" class="tab-content active">
+    <div class="section">
+        <h2>오늘의 채널 현황</h2>
+        <div class="channel-cards">
+    <div class="channel-card" style="border-top: 4px solid #E1306C">
+        <div class="card-header">
+            <h3>Instagram</h3>
+            <a href="https://www.instagram.com/zn.co.kr_/" target="_blank" class="card-link">채널 바로가기 &rarr;</a>
+        </div>
+        <div class="card-stats">
+            <div class="stat"><span class="stat-value">9</span><span class="stat-label">팔로워</span></div>
+            <div class="stat"><span class="stat-value">836</span><span class="stat-label">총 조회수</span></div>
+            <div class="stat"><span class="stat-value">26</span><span class="stat-label">총 좋아요</span></div>
+            <div class="stat"><span class="stat-value">6</span><span class="stat-label">게시물</span></div>
+            <div class="stat"><span class="stat-value">16.6%</span><span class="stat-label">참여율</span></div>
+        </div>
+    </div>
+    <div class="channel-card" style="border-top: 4px solid #FF0000">
+        <div class="card-header">
+            <h3>YouTube</h3>
+            <a href="https://www.youtube.com/@%EC%9C%A0%EC%95%84%EC%97%B0-v8w" target="_blank" class="card-link">채널 바로가기 &rarr;</a>
+        </div>
+        <div class="card-stats">
+            <div class="stat"><span class="stat-value">8</span><span class="stat-label">팔로워</span></div>
+            <div class="stat"><span class="stat-value">7.7K</span><span class="stat-label">총 조회수</span></div>
+            <div class="stat"><span class="stat-value">32</span><span class="stat-label">총 좋아요</span></div>
+            <div class="stat"><span class="stat-value">4</span><span class="stat-label">게시물</span></div>
+            <div class="stat"><span class="stat-value">0.6%</span><span class="stat-label">참여율</span></div>
+        </div>
+    </div></div>
+    </div>
+
+    <div class="section">
+        <h2>채널별 성과 비교 (오늘)</h2>
+        <div>                            <div id="504ea269-3b6a-4d46-98a5-913c88b54a1e" class="plotly-graph-div" style="height:300px; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("504ea269-3b6a-4d46-98a5-913c88b54a1e")) {                    Plotly.newPlot(                        "504ea269-3b6a-4d46-98a5-913c88b54a1e",                        [{"marker":{"color":["#E1306C","#FF0000"]},"name":"\uc870\ud68c\uc218","x":["Instagram","YouTube"],"y":[836,7733],"type":"bar"},{"marker":{"color":["rgba(225,48,108,0.5)","rgba(255,0,0,0.5)"]},"name":"\uc88b\uc544\uc694","x":["Instagram","YouTube"],"y":[26,32],"type":"bar"}],                        {"template":{"data":{"barpolar":[{"marker":{"line":{"color":"white","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"white","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"#C8D4E3","linecolor":"#C8D4E3","minorgridcolor":"#C8D4E3","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"#C8D4E3","linecolor":"#C8D4E3","minorgridcolor":"#C8D4E3","startlinecolor":"#2a3f5f"},"type":"carpet"}],"choropleth":[{"colorbar":{"outlinewidth":0,"ticks":""},"type":"choropleth"}],"contourcarpet":[{"colorbar":{"outlinewidth":0,"ticks":""},"type":"contourcarpet"}],"contour":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"contour"}],"heatmap":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"heatmap"}],"histogram2dcontour":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"histogram2dcontour"}],"histogram2d":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"histogram2d"}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"mesh3d":[{"colorbar":{"outlinewidth":0,"ticks":""},"type":"mesh3d"}],"parcoords":[{"line":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"parcoords"}],"pie":[{"automargin":true,"type":"pie"}],"scatter3d":[{"line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatter3d"}],"scattercarpet":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattercarpet"}],"scattergeo":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattergeo"}],"scattergl":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattergl"}],"scattermapbox":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattermapbox"}],"scattermap":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattermap"}],"scatterpolargl":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatterpolargl"}],"scatterpolar":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatterpolar"}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"scatterternary":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatterternary"}],"surface":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"surface"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}]},"layout":{"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"autotypenumbers":"strict","coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]],"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]},"colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"geo":{"bgcolor":"white","lakecolor":"white","landcolor":"white","showlakes":true,"showland":true,"subunitcolor":"#C8D4E3"},"hoverlabel":{"align":"left"},"hovermode":"closest","mapbox":{"style":"light"},"paper_bgcolor":"white","plot_bgcolor":"white","polar":{"angularaxis":{"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":""},"bgcolor":"white","radialaxis":{"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":""}},"scene":{"xaxis":{"backgroundcolor":"white","gridcolor":"#DFE8F3","gridwidth":2,"linecolor":"#EBF0F8","showbackground":true,"ticks":"","zerolinecolor":"#EBF0F8"},"yaxis":{"backgroundcolor":"white","gridcolor":"#DFE8F3","gridwidth":2,"linecolor":"#EBF0F8","showbackground":true,"ticks":"","zerolinecolor":"#EBF0F8"},"zaxis":{"backgroundcolor":"white","gridcolor":"#DFE8F3","gridwidth":2,"linecolor":"#EBF0F8","showbackground":true,"ticks":"","zerolinecolor":"#EBF0F8"}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"ternary":{"aaxis":{"gridcolor":"#DFE8F3","linecolor":"#A2B1C6","ticks":""},"baxis":{"gridcolor":"#DFE8F3","linecolor":"#A2B1C6","ticks":""},"bgcolor":"white","caxis":{"gridcolor":"#DFE8F3","linecolor":"#A2B1C6","ticks":""}},"title":{"x":0.05},"xaxis":{"automargin":true,"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":"","title":{"standoff":15},"zerolinecolor":"#EBF0F8","zerolinewidth":2},"yaxis":{"automargin":true,"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":"","title":{"standoff":15},"zerolinecolor":"#EBF0F8","zerolinewidth":2}}},"margin":{"t":30,"b":30},"barmode":"group","height":300},                        {"responsive": true}                    )                };            </script>        </div>
+    </div>
+
+    <div class="section">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #f0f0f0">
+            <button class="week-btn" onclick="changeWeek(-1)">&larr; 이전 주</button>
+            <h2 id="week-title" style="border:none;padding:0;margin:0">주간 추이</h2>
+            <button class="week-btn" id="week-next-btn" onclick="changeWeek(1)">다음 주 &rarr;</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div><h3 style="font-size:14px;color:#555;margin-bottom:8px">조회수</h3><div id="chart-views"></div></div>
+            <div><h3 style="font-size:14px;color:#555;margin-bottom:8px">팔로워</h3><div id="chart-followers"></div></div>
+        </div>
+        <div style="margin-top:12px">
+            <h3 style="font-size:14px;color:#555;margin-bottom:8px">참여율</h3>
+            <div id="chart-engagement"></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>일별 상세 데이터</h2>
+        <div id="weekly-table"></div>
+    </div>
+
+    <div class='section'><h2>Top 성장 게시물</h2><p style='color:#888;font-size:12px;margin-bottom:12px;'>전일 대비 조회수 증가량 기준</p>
+            <div class="top-item">
+                <span class="top-rank">1</span>
+                <span class="top-channel" style="color:#FF0000">[YT]</span>
+                <span class="top-caption">"옆자리 디자이너님 제 사진갖고 월루해요ㅠ"</span>
+                <span class="top-growth">+2.1K 조회 (+100.0%)</span>
+            </div>
+            <div class="top-item">
+                <span class="top-rank">2</span>
+                <span class="top-channel" style="color:#E1306C">[IG]</span>
+                <span class="top-caption">"옆자리 디자이너님 제 사진갖고 월루해요ㅠ
+대표님 알고리"</span>
+                <span class="top-growth">+290 조회 (+100.0%)</span>
+            </div>
+            <div class="top-item">
+                <span class="top-rank">3</span>
+                <span class="top-channel" style="color:#FF0000">[YT]</span>
+                <span class="top-caption">"봄이구나~~🌸🌼🌺🌹🌷🪷🌻#봄이구나 #그렇구나"</span>
+                <span class="top-growth">+75 조회 (+18.5%)</span>
+            </div>
+            <div class="top-item">
+                <span class="top-rank">4</span>
+                <span class="top-channel" style="color:#E1306C">[IG]</span>
+                <span class="top-caption">"봄이구나~~🌸🌼🌺🌹🌷🌻
+#봄이구나 #그렇구나"</span>
+                <span class="top-growth">+3 조회 (+1.2%)</span>
+            </div>
+            <div class="top-item">
+                <span class="top-rank">5</span>
+                <span class="top-channel" style="color:#E1306C">[IG]</span>
+                <span class="top-caption">"mㅏㄱ차 탑승,,😋🍟❤️
+#mcdonalds #miss"</span>
+                <span class="top-growth">+1 조회 (+14.3%)</span>
+            </div></div>
+</div>
+
+<!-- ═══════ Instagram ═══════ -->
+<div id="tab-instagram" class="tab-content">
+    <div class="section">
+        <div class="platform-header">
+            <div class="dot" style="background:#E1306C"></div>
+            <h2>Instagram</h2>
+            <a href="https://www.instagram.com/zn.co.kr_/" target="_blank">@zn.co.kr_ &rarr;</a>
+        </div>
+        
+    <div class="channel-card" style="border-top: 4px solid #E1306C">
+        <div class="card-header">
+            <h3>Instagram</h3>
+            <a href="https://www.instagram.com/zn.co.kr_/" target="_blank" class="card-link">채널 바로가기 &rarr;</a>
+        </div>
+        <div class="card-stats">
+            <div class="stat"><span class="stat-value">9</span><span class="stat-label">팔로워</span></div>
+            <div class="stat"><span class="stat-value">836</span><span class="stat-label">총 조회수</span></div>
+            <div class="stat"><span class="stat-value">26</span><span class="stat-label">총 좋아요</span></div>
+            <div class="stat"><span class="stat-value">6</span><span class="stat-label">게시물</span></div>
+            <div class="stat"><span class="stat-value">16.6%</span><span class="stat-label">참여율</span></div>
+        </div>
+    </div>
+    </div>
+    <div class='section'><h3>게시물별 조회수</h3><div>                            <div id="b1a2a1a9-ff62-41da-b0f1-0d454084a298" class="plotly-graph-div" style="height:300px; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("b1a2a1a9-ff62-41da-b0f1-0d454084a298")) {                    Plotly.newPlot(                        "b1a2a1a9-ff62-41da-b0f1-0d454084a298",                        [{"marker":{"color":"#E1306C"},"orientation":"h","text":["8","15","118","159","246","290"],"textposition":"auto","x":[8,15,118,159,246,290],"y":["m\u314f\u3131\ucc28 \ud0d1\uc2b9,,\ud83d\ude0b\ud83c\udf5f\u2764\ufe0f\n#mcdon","\ubb36\uc744\uae4c \ud480\uae4c\u2753\u2757\ufe0f\u2049\ufe0f","\ud83c\udf6f (\uc800\uc7a5) \ubdf0\ud2f0 \ub9c8\ucf00\ud130\uac00 \ucd94\ucc9c\ud558\ub294 ","\ud83c\udf6f\ud658\uc808\uae30\uc5d0 \ud53c\ubd80 \ud654\uc7a5 \ub2e4 \ub728\uace0 \ubb34\ub108\uc9c4","\ubd04\uc774\uad6c\ub098~~\ud83c\udf38\ud83c\udf3c\ud83c\udf3a\ud83c\udf39\ud83c\udf37\ud83c\udf3b\n#\ubd04\uc774\uad6c\ub098 #","\uc606\uc790\ub9ac \ub514\uc790\uc774\ub108\ub2d8 \uc81c \uc0ac\uc9c4\uac16\uace0 \uc6d4\ub8e8\ud574"],"type":"bar"}],                        {"template":{"data":{"barpolar":[{"marker":{"line":{"color":"white","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"white","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"#C8D4E3","linecolor":"#C8D4E3","minorgridcolor":"#C8D4E3","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"#C8D4E3","linecolor":"#C8D4E3","minorgridcolor":"#C8D4E3","startlinecolor":"#2a3f5f"},"type":"carpet"}],"choropleth":[{"colorbar":{"outlinewidth":0,"ticks":""},"type":"choropleth"}],"contourcarpet":[{"colorbar":{"outlinewidth":0,"ticks":""},"type":"contourcarpet"}],"contour":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"contour"}],"heatmap":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"heatmap"}],"histogram2dcontour":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"histogram2dcontour"}],"histogram2d":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"histogram2d"}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"mesh3d":[{"colorbar":{"outlinewidth":0,"ticks":""},"type":"mesh3d"}],"parcoords":[{"line":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"parcoords"}],"pie":[{"automargin":true,"type":"pie"}],"scatter3d":[{"line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatter3d"}],"scattercarpet":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattercarpet"}],"scattergeo":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattergeo"}],"scattergl":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattergl"}],"scattermapbox":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattermapbox"}],"scattermap":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattermap"}],"scatterpolargl":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatterpolargl"}],"scatterpolar":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatterpolar"}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"scatterternary":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatterternary"}],"surface":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"surface"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}]},"layout":{"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"autotypenumbers":"strict","coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]],"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]},"colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"geo":{"bgcolor":"white","lakecolor":"white","landcolor":"white","showlakes":true,"showland":true,"subunitcolor":"#C8D4E3"},"hoverlabel":{"align":"left"},"hovermode":"closest","mapbox":{"style":"light"},"paper_bgcolor":"white","plot_bgcolor":"white","polar":{"angularaxis":{"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":""},"bgcolor":"white","radialaxis":{"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":""}},"scene":{"xaxis":{"backgroundcolor":"white","gridcolor":"#DFE8F3","gridwidth":2,"linecolor":"#EBF0F8","showbackground":true,"ticks":"","zerolinecolor":"#EBF0F8"},"yaxis":{"backgroundcolor":"white","gridcolor":"#DFE8F3","gridwidth":2,"linecolor":"#EBF0F8","showbackground":true,"ticks":"","zerolinecolor":"#EBF0F8"},"zaxis":{"backgroundcolor":"white","gridcolor":"#DFE8F3","gridwidth":2,"linecolor":"#EBF0F8","showbackground":true,"ticks":"","zerolinecolor":"#EBF0F8"}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"ternary":{"aaxis":{"gridcolor":"#DFE8F3","linecolor":"#A2B1C6","ticks":""},"baxis":{"gridcolor":"#DFE8F3","linecolor":"#A2B1C6","ticks":""},"bgcolor":"white","caxis":{"gridcolor":"#DFE8F3","linecolor":"#A2B1C6","ticks":""}},"title":{"x":0.05},"xaxis":{"automargin":true,"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":"","title":{"standoff":15},"zerolinecolor":"#EBF0F8","zerolinewidth":2},"yaxis":{"automargin":true,"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":"","title":{"standoff":15},"zerolinecolor":"#EBF0F8","zerolinewidth":2}}},"margin":{"t":10,"b":30,"l":180},"height":300,"xaxis":{"title":{"text":"\uc870\ud68c\uc218"}}},                        {"responsive": true}                    )                };            </script>        </div></div>
+    <div class="section">
+        <h3>콘텐츠 DB</h3>
+        <div class="post-grid">
+        <a href="https://www.instagram.com/reel/DWoAY8miWLQ/" target="_blank" class="post-card">
+            <div class="post-thumb">
+                <span class="post-rank">#1</span>
+                <img src="https://scontent-iad3-1.cdninstagram.com/v/t51.71878-15/657833258_1573750637018825_575045919993209432_n.jpg?stp=dst-jpg_e35_tt6&_nc_cat=104&ccb=7-5&_nc_sid=18de74&efg=eyJlZmdfdGFnIjoiQ0xJUFMuYmVzdF9pbWFnZV91cmxnZW4uQzMifQ%3D%3D&_nc_ohc=HuYdAQAKjGkQ7kNvwEyVrZL&_nc_oc=AdrpBqeGnG6CJ8QUl7ZIHf3xEo65220j5bK3i6Kb687ESh3tGubu-eRy2wZnjcj32jk&_nc_zt=23&_nc_ht=scontent-iad3-1.cdninstagram.com&edm=AM6HXa8EAAAA&_nc_gid=lqRiYBw4TXCkw-6JGurimg&_nc_tpa=Q5bMBQEOrHNoVBwZQLCo7EmaydoCYlHE7FuG0uXJaPIw1WNPT-ZE6Bq4P37UKKSXgPq4A5EfxluoROPuhw&oh=00_Af1AVlN7Uj3y2Q7mK6l3WuF2dNi1MlBAOHbYEUHJBtyCnw&oe=69D54E99" alt="" loading="lazy">
+            </div>
+            <div class="post-info">
+                <div class="post-caption">옆자리 디자이너님 제 사진갖고 월루해요ㅠ
+대표님 알고리</div>
+                <div class="post-date">2026-04-02</div>
+                <div class="post-metrics">
+                    <div class="post-metric"><span class="pm-label">조회수</span><span class="pm-value">290</span></div>
+                    <div class="post-metric"><span class="pm-label">좋아요</span><span class="pm-value">4</span></div>
+                    <div class="post-metric"><span class="pm-label">댓글</span><span class="pm-value">1</span></div>
+                    <div class="post-metric"><span class="pm-label">공유</span><span class="pm-value">0</span></div>
+                    <div class="post-metric"><span class="pm-label">저장</span><span class="pm-value">0</span></div>
+                    <div class="post-metric"><span class="pm-label">참여율</span><span class="pm-value">1.7%</span></div>
+                </div>
+            </div>
+        </a>
+        <a href="https://www.instagram.com/reel/DWi0AbviX6P/" target="_blank" class="post-card">
+            <div class="post-thumb">
+                <span class="post-rank">#2</span>
+                <img src="https://scontent-iad6-1.cdninstagram.com/v/t51.71878-15/659072882_1223052046479143_2885190050795558649_n.jpg?stp=dst-jpg_e35_tt6&_nc_cat=107&ccb=7-5&_nc_sid=18de74&efg=eyJlZmdfdGFnIjoiQ0xJUFMuYmVzdF9pbWFnZV91cmxnZW4uQzMifQ%3D%3D&_nc_ohc=NmKAsUz9g7YQ7kNvwGN2ltI&_nc_oc=AdrDsuvxXQ-fdUkqbdmaCcklHyRf0SP6F8MTfPZn_kTLYvVo7RE2-f26of99fpI5q9w&_nc_zt=23&_nc_ht=scontent-iad6-1.cdninstagram.com&edm=AM6HXa8EAAAA&_nc_gid=lqRiYBw4TXCkw-6JGurimg&_nc_tpa=Q5bMBQHxjqzAgitW2orjuQ7pQP3KUsThdSNZelH7l7YOLeZDjsyNlupQDi2VtUCOVs5Xa37VfxmjFiZpdQ&oh=00_Af3sJzpRnnEtQVfVZsR7MYCMa2em0ypIYMRKVOYSgaLvZw&oe=69D5505F" alt="" loading="lazy">
+            </div>
+            <div class="post-info">
+                <div class="post-caption">봄이구나~~🌸🌼🌺🌹🌷🌻
+#봄이구나 #그렇구나</div>
+                <div class="post-date">2026-03-31</div>
+                <div class="post-metrics">
+                    <div class="post-metric"><span class="pm-label">조회수</span><span class="pm-value">246</span></div>
+                    <div class="post-metric"><span class="pm-label">좋아요</span><span class="pm-value">4</span></div>
+                    <div class="post-metric"><span class="pm-label">댓글</span><span class="pm-value">0</span></div>
+                    <div class="post-metric"><span class="pm-label">공유</span><span class="pm-value">0</span></div>
+                    <div class="post-metric"><span class="pm-label">저장</span><span class="pm-value">0</span></div>
+                    <div class="post-metric"><span class="pm-label">참여율</span><span class="pm-value">1.6%</span></div>
+                </div>
+            </div>
+        </a>
+        <a href="https://www.instagram.com/reel/DWYV3EICaPb/" target="_blank" class="post-card">
+            <div class="post-thumb">
+                <span class="post-rank">#3</span>
+                <img src="https://scontent-iad6-1.cdninstagram.com/v/t51.82787-15/657673465_18070008323311890_7602847430105893440_n.jpg?stp=dst-jpg_e35_tt6&_nc_cat=106&ccb=7-5&_nc_sid=18de74&efg=eyJlZmdfdGFnIjoiQ0xJUFMuYmVzdF9pbWFnZV91cmxnZW4uQzMifQ%3D%3D&_nc_ohc=BtGK4M-DX6QQ7kNvwEvfle5&_nc_oc=AdoMad8poSqv10b4fWf_BilkCTNInFE2mWI6Hz1pphisLI2-Y15fb0b1II-hAsr7tqY&_nc_zt=23&_nc_ht=scontent-iad6-1.cdninstagram.com&edm=AM6HXa8EAAAA&_nc_gid=lqRiYBw4TXCkw-6JGurimg&_nc_tpa=Q5bMBQGg9Tgoof_nK515RG8GCMITbdCjDHLl8irIB-j4HX24Gn1_JmtQ-mVixF4CMKVb2ZqTZRjfJS8jhg&oh=00_Af09xBn9U8RQaW9jRPEBQ1FoUm2R76C5lFSsxvwXFJw_cA&oe=69D52DB4" alt="" loading="lazy">
+            </div>
+            <div class="post-info">
+                <div class="post-caption">🍯환절기에 피부 화장 다 뜨고 무너진다면 이렇게 따라해</div>
+                <div class="post-date">2026-03-27</div>
+                <div class="post-metrics">
+                    <div class="post-metric"><span class="pm-label">조회수</span><span class="pm-value">159</span></div>
+                    <div class="post-metric"><span class="pm-label">좋아요</span><span class="pm-value">4</span></div>
+                    <div class="post-metric"><span class="pm-label">댓글</span><span class="pm-value">0</span></div>
+                    <div class="post-metric"><span class="pm-label">공유</span><span class="pm-value">0</span></div>
+                    <div class="post-metric"><span class="pm-label">저장</span><span class="pm-value">0</span></div>
+                    <div class="post-metric"><span class="pm-label">참여율</span><span class="pm-value">2.5%</span></div>
+                </div>
+            </div>
+        </a>
+        <a href="https://www.instagram.com/reel/DWTZ9fnieEZ/" target="_blank" class="post-card">
+            <div class="post-thumb">
+                <span class="post-rank">#4</span>
+                <img src="https://scontent-iad3-1.cdninstagram.com/v/t51.82787-15/658028288_18069337583311890_3772121535720231112_n.jpg?stp=dst-jpg_e35_tt6&_nc_cat=108&ccb=7-5&_nc_sid=18de74&efg=eyJlZmdfdGFnIjoiQ0xJUFMuYmVzdF9pbWFnZV91cmxnZW4uQzMifQ%3D%3D&_nc_ohc=fdRWI6a0QI0Q7kNvwFBZABY&_nc_oc=Adq1F4q5cJRNdn0EBcvrOnP92CPn82RxcVg2yyr9BXrsElMl5PA1ijQ-DK_Xz9ahcug&_nc_zt=23&_nc_ht=scontent-iad3-1.cdninstagram.com&edm=AM6HXa8EAAAA&_nc_gid=lqRiYBw4TXCkw-6JGurimg&_nc_tpa=Q5bMBQHlt9qC-EYftz5OAHCT_yyt4kjTaQIn-shRbYWhxtJEq8ROXlCv853BqggYZXlnHArkCmDbe2lr5w&oh=00_Af0RO9q9IqR25wa4_elTL9UBIUhddmv1jkj0SnL34XI_Dg&oe=69D52AAA" alt="" loading="lazy">
+            </div>
+            <div class="post-info">
+                <div class="post-caption">🍯 (저장) 뷰티 마케터가 추천하는 피부 부위별 케어템</div>
+                <div class="post-date">2026-03-25</div>
+                <div class="post-metrics">
+                    <div class="post-metric"><span class="pm-label">조회수</span><span class="pm-value">118</span></div>
+                    <div class="post-metric"><span class="pm-label">좋아요</span><span class="pm-value">5</span></div>
+                    <div class="post-metric"><span class="pm-label">댓글</span><span class="pm-value">0</span></div>
+                    <div class="post-metric"><span class="pm-label">공유</span><span class="pm-value">0</span></div>
+                    <div class="post-metric"><span class="pm-label">저장</span><span class="pm-value">0</span></div>
+                    <div class="post-metric"><span class="pm-label">참여율</span><span class="pm-value">4.2%</span></div>
+                </div>
+            </div>
+        </a>
+        <a href="https://www.instagram.com/p/DWTZPXaCXSl/" target="_blank" class="post-card">
+            <div class="post-thumb">
+                <span class="post-rank">#5</span>
+                <img src="https://scontent-iad6-1.cdninstagram.com/v/t51.82787-15/656826891_18069335924311890_5918502158179757682_n.jpg?stp=dst-jpg_e35_tt6&_nc_cat=102&ccb=7-5&_nc_sid=18de74&efg=eyJlZmdfdGFnIjoiQ0FST1VTRUxfSVRFTS5iZXN0X2ltYWdlX3VybGdlbi5DMyJ9&_nc_ohc=i_uZBbkFKKoQ7kNvwFbDMSO&_nc_oc=AdrqlOI2HNT0YJF_7ilfLp1exQJFHPxcnoXYoFvw2CkNjxKAr7pOaAwyzOu4kG8qaYE&_nc_zt=23&_nc_ht=scontent-iad6-1.cdninstagram.com&edm=AM6HXa8EAAAA&_nc_gid=lqRiYBw4TXCkw-6JGurimg&oh=00_Af2zxA5EM8jNnwCUVLUMuHBwER8gCx8vD1mYYdpGig65mA&oe=69D52551" alt="" loading="lazy">
+            </div>
+            <div class="post-info">
+                <div class="post-caption">묶을까 풀까❓❗️⁉️</div>
+                <div class="post-date">2026-03-25</div>
+                <div class="post-metrics">
+                    <div class="post-metric"><span class="pm-label">조회수</span><span class="pm-value">15</span></div>
+                    <div class="post-metric"><span class="pm-label">좋아요</span><span class="pm-value">4</span></div>
+                    <div class="post-metric"><span class="pm-label">댓글</span><span class="pm-value">0</span></div>
+                    <div class="post-metric"><span class="pm-label">공유</span><span class="pm-value">0</span></div>
+                    <div class="post-metric"><span class="pm-label">저장</span><span class="pm-value">0</span></div>
+                    <div class="post-metric"><span class="pm-label">참여율</span><span class="pm-value">26.7%</span></div>
+                </div>
+            </div>
+        </a>
+        <a href="https://www.instagram.com/p/DWgQAlJCZ1k/" target="_blank" class="post-card">
+            <div class="post-thumb">
+                <span class="post-rank">#6</span>
+                <img src="https://scontent-iad3-2.cdninstagram.com/v/t51.82787-15/656233262_18071166755311890_5216164669847341036_n.jpg?stp=dst-jpg_e35_tt6&_nc_cat=103&ccb=7-5&_nc_sid=18de74&efg=eyJlZmdfdGFnIjoiQ0FST1VTRUxfSVRFTS5iZXN0X2ltYWdlX3VybGdlbi5DMyJ9&_nc_ohc=hs8X43B6InUQ7kNvwEtEv-J&_nc_oc=AdrQMtlUgKeWx5zk_ayfQY4wun_HwisaCRKjp7rRC25w44ZmNhKv33HonZG8Ax0j3kg&_nc_zt=23&_nc_ht=scontent-iad3-2.cdninstagram.com&edm=AM6HXa8EAAAA&_nc_gid=lqRiYBw4TXCkw-6JGurimg&oh=00_Af2xQ2-2rJ6nASc6DrTBbW-HzoI7_N_tW0e74BAeV0NeOw&oe=69D5536D" alt="" loading="lazy">
+            </div>
+            <div class="post-info">
+                <div class="post-caption">mㅏㄱ차 탑승,,😋🍟❤️
+#mcdonalds #miss</div>
+                <div class="post-date">2026-03-30</div>
+                <div class="post-metrics">
+                    <div class="post-metric"><span class="pm-label">조회수</span><span class="pm-value">8</span></div>
+                    <div class="post-metric"><span class="pm-label">좋아요</span><span class="pm-value">5</span></div>
+                    <div class="post-metric"><span class="pm-label">댓글</span><span class="pm-value">0</span></div>
+                    <div class="post-metric"><span class="pm-label">공유</span><span class="pm-value">0</span></div>
+                    <div class="post-metric"><span class="pm-label">저장</span><span class="pm-value">0</span></div>
+                    <div class="post-metric"><span class="pm-label">참여율</span><span class="pm-value">62.5%</span></div>
+                </div>
+            </div>
+        </a></div>
+    </div>
+</div>
+
+<!-- ═══════ YouTube ═══════ -->
+<div id="tab-youtube" class="tab-content">
+    <div class="section">
+        <div class="platform-header">
+            <div class="dot" style="background:#FF0000"></div>
+            <h2>YouTube</h2>
+            <a href="https://www.youtube.com/@%EC%9C%A0%EC%95%84%EC%97%B0-v8w" target="_blank">@유아연 &rarr;</a>
+        </div>
+        
+    <div class="channel-card" style="border-top: 4px solid #FF0000">
+        <div class="card-header">
+            <h3>YouTube</h3>
+            <a href="https://www.youtube.com/@%EC%9C%A0%EC%95%84%EC%97%B0-v8w" target="_blank" class="card-link">채널 바로가기 &rarr;</a>
+        </div>
+        <div class="card-stats">
+            <div class="stat"><span class="stat-value">8</span><span class="stat-label">팔로워</span></div>
+            <div class="stat"><span class="stat-value">7.7K</span><span class="stat-label">총 조회수</span></div>
+            <div class="stat"><span class="stat-value">32</span><span class="stat-label">총 좋아요</span></div>
+            <div class="stat"><span class="stat-value">4</span><span class="stat-label">게시물</span></div>
+            <div class="stat"><span class="stat-value">0.6%</span><span class="stat-label">참여율</span></div>
+        </div>
+    </div>
+    </div>
+    <div class='section'><h3>영상별 조회수</h3><div>                            <div id="2a4e0d55-2b8b-4860-b596-a36dd1743a58" class="plotly-graph-div" style="height:250px; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("2a4e0d55-2b8b-4860-b596-a36dd1743a58")) {                    Plotly.newPlot(                        "2a4e0d55-2b8b-4860-b596-a36dd1743a58",                        [{"marker":{"color":"#FF0000"},"orientation":"h","text":["481","1.9K","2.1K","3.3K"],"textposition":"auto","x":[481,1911,2075,3266],"y":["\ubd04\uc774\uad6c\ub098~~\ud83c\udf38\ud83c\udf3c\ud83c\udf3a\ud83c\udf39\ud83c\udf37\ud83e\udeb7\ud83c\udf3b#\ubd04\uc774\uad6c\ub098 #","\ubdf0\ud2f0 \ub9c8\ucf00\ud130\uac00 \uc54c\ub824\uc8fc\ub294 \ud53c\ubd80 \ud654\uc7a5 \uc548","\uc606\uc790\ub9ac \ub514\uc790\uc774\ub108\ub2d8 \uc81c \uc0ac\uc9c4\uac16\uace0 \uc6d4\ub8e8\ud574","\ud83c\udf6f (\uc800\uc7a5) \ubdf0\ud2f0 \ub9c8\ucf00\ud130\uac00 \ucd94\ucc9c\ud558\ub294 "],"type":"bar"}],                        {"template":{"data":{"barpolar":[{"marker":{"line":{"color":"white","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"white","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"#C8D4E3","linecolor":"#C8D4E3","minorgridcolor":"#C8D4E3","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"#C8D4E3","linecolor":"#C8D4E3","minorgridcolor":"#C8D4E3","startlinecolor":"#2a3f5f"},"type":"carpet"}],"choropleth":[{"colorbar":{"outlinewidth":0,"ticks":""},"type":"choropleth"}],"contourcarpet":[{"colorbar":{"outlinewidth":0,"ticks":""},"type":"contourcarpet"}],"contour":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"contour"}],"heatmap":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"heatmap"}],"histogram2dcontour":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"histogram2dcontour"}],"histogram2d":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"histogram2d"}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"mesh3d":[{"colorbar":{"outlinewidth":0,"ticks":""},"type":"mesh3d"}],"parcoords":[{"line":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"parcoords"}],"pie":[{"automargin":true,"type":"pie"}],"scatter3d":[{"line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatter3d"}],"scattercarpet":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattercarpet"}],"scattergeo":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattergeo"}],"scattergl":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattergl"}],"scattermapbox":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattermapbox"}],"scattermap":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattermap"}],"scatterpolargl":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatterpolargl"}],"scatterpolar":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatterpolar"}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"scatterternary":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatterternary"}],"surface":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"surface"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}]},"layout":{"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"autotypenumbers":"strict","coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]],"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]},"colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"geo":{"bgcolor":"white","lakecolor":"white","landcolor":"white","showlakes":true,"showland":true,"subunitcolor":"#C8D4E3"},"hoverlabel":{"align":"left"},"hovermode":"closest","mapbox":{"style":"light"},"paper_bgcolor":"white","plot_bgcolor":"white","polar":{"angularaxis":{"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":""},"bgcolor":"white","radialaxis":{"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":""}},"scene":{"xaxis":{"backgroundcolor":"white","gridcolor":"#DFE8F3","gridwidth":2,"linecolor":"#EBF0F8","showbackground":true,"ticks":"","zerolinecolor":"#EBF0F8"},"yaxis":{"backgroundcolor":"white","gridcolor":"#DFE8F3","gridwidth":2,"linecolor":"#EBF0F8","showbackground":true,"ticks":"","zerolinecolor":"#EBF0F8"},"zaxis":{"backgroundcolor":"white","gridcolor":"#DFE8F3","gridwidth":2,"linecolor":"#EBF0F8","showbackground":true,"ticks":"","zerolinecolor":"#EBF0F8"}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"ternary":{"aaxis":{"gridcolor":"#DFE8F3","linecolor":"#A2B1C6","ticks":""},"baxis":{"gridcolor":"#DFE8F3","linecolor":"#A2B1C6","ticks":""},"bgcolor":"white","caxis":{"gridcolor":"#DFE8F3","linecolor":"#A2B1C6","ticks":""}},"title":{"x":0.05},"xaxis":{"automargin":true,"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":"","title":{"standoff":15},"zerolinecolor":"#EBF0F8","zerolinewidth":2},"yaxis":{"automargin":true,"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":"","title":{"standoff":15},"zerolinecolor":"#EBF0F8","zerolinewidth":2}}},"margin":{"t":10,"b":30,"l":180},"height":250,"xaxis":{"title":{"text":"\uc870\ud68c\uc218"}}},                        {"responsive": true}                    )                };            </script>        </div></div>
+    <div class="section">
+        <h3>콘텐츠 DB</h3>
+        <div class="post-grid">
+        <a href="https://youtu.be/rJ2M4eHLZ6k" target="_blank" class="post-card">
+            <div class="post-thumb">
+                <span class="post-rank">#1</span>
+                <img src="https://i.ytimg.com/vi/rJ2M4eHLZ6k/hqdefault.jpg" alt="" loading="lazy">
+            </div>
+            <div class="post-info">
+                <div class="post-caption">🍯 (저장) 뷰티 마케터가 추천하는 피부 부위별 케어템</div>
+                <div class="post-date">2026-03-25</div>
+                <div class="post-metrics">
+                    <div class="post-metric"><span class="pm-label">조회수</span><span class="pm-value">3.3K</span></div>
+                    <div class="post-metric"><span class="pm-label">좋아요</span><span class="pm-value">12</span></div>
+                    <div class="post-metric"><span class="pm-label">댓글</span><span class="pm-value">2</span></div>
+                    <div class="post-metric"><span class="pm-label">공유</span><span class="pm-value">0</span></div>
+                    
+                    <div class="post-metric"><span class="pm-label">참여율</span><span class="pm-value">0.4%</span></div>
+                </div>
+            </div>
+        </a>
+        <a href="https://youtu.be/wDuIzfCqBKI" target="_blank" class="post-card">
+            <div class="post-thumb">
+                <span class="post-rank">#2</span>
+                <img src="https://i.ytimg.com/vi/wDuIzfCqBKI/hqdefault.jpg" alt="" loading="lazy">
+            </div>
+            <div class="post-info">
+                <div class="post-caption">옆자리 디자이너님 제 사진갖고 월루해요ㅠ</div>
+                <div class="post-date">2026-04-02</div>
+                <div class="post-metrics">
+                    <div class="post-metric"><span class="pm-label">조회수</span><span class="pm-value">2.1K</span></div>
+                    <div class="post-metric"><span class="pm-label">좋아요</span><span class="pm-value">8</span></div>
+                    <div class="post-metric"><span class="pm-label">댓글</span><span class="pm-value">1</span></div>
+                    <div class="post-metric"><span class="pm-label">공유</span><span class="pm-value">0</span></div>
+                    
+                    <div class="post-metric"><span class="pm-label">참여율</span><span class="pm-value">0.4%</span></div>
+                </div>
+            </div>
+        </a>
+        <a href="https://youtu.be/Hc-aD2n-vWU" target="_blank" class="post-card">
+            <div class="post-thumb">
+                <span class="post-rank">#3</span>
+                <img src="https://i.ytimg.com/vi/Hc-aD2n-vWU/hqdefault.jpg" alt="" loading="lazy">
+            </div>
+            <div class="post-info">
+                <div class="post-caption">뷰티 마케터가 알려주는 피부 화장 안뜨는 방법</div>
+                <div class="post-date">2026-03-27</div>
+                <div class="post-metrics">
+                    <div class="post-metric"><span class="pm-label">조회수</span><span class="pm-value">1.9K</span></div>
+                    <div class="post-metric"><span class="pm-label">좋아요</span><span class="pm-value">6</span></div>
+                    <div class="post-metric"><span class="pm-label">댓글</span><span class="pm-value">0</span></div>
+                    <div class="post-metric"><span class="pm-label">공유</span><span class="pm-value">0</span></div>
+                    
+                    <div class="post-metric"><span class="pm-label">참여율</span><span class="pm-value">0.3%</span></div>
+                </div>
+            </div>
+        </a>
+        <a href="https://youtu.be/331b4jggNU0" target="_blank" class="post-card">
+            <div class="post-thumb">
+                <span class="post-rank">#4</span>
+                <img src="https://i.ytimg.com/vi/331b4jggNU0/hqdefault.jpg" alt="" loading="lazy">
+            </div>
+            <div class="post-info">
+                <div class="post-caption">봄이구나~~🌸🌼🌺🌹🌷🪷🌻#봄이구나 #그렇구나</div>
+                <div class="post-date">2026-03-31</div>
+                <div class="post-metrics">
+                    <div class="post-metric"><span class="pm-label">조회수</span><span class="pm-value">481</span></div>
+                    <div class="post-metric"><span class="pm-label">좋아요</span><span class="pm-value">6</span></div>
+                    <div class="post-metric"><span class="pm-label">댓글</span><span class="pm-value">0</span></div>
+                    <div class="post-metric"><span class="pm-label">공유</span><span class="pm-value">0</span></div>
+                    
+                    <div class="post-metric"><span class="pm-label">참여율</span><span class="pm-value">1.2%</span></div>
+                </div>
+            </div>
+        </a></div>
+    </div>
+</div>
+
+<!-- ═══════ TikTok ═══════ -->
+<div id="tab-tiktok" class="tab-content">
+    <div class="section">
+        <div class="platform-header">
+            <div class="dot" style="background:#000000"></div>
+            <h2>TikTok</h2>
+            <a href="https://www.tiktok.com/@zn.co.kr_?is_from_webapp=1&sender_device=pc" target="_blank">@zn.co.kr_ &rarr;</a>
+        </div>
+        <p class='empty'>TikTok 데이터가 없습니다. 크레덴셜을 설정해주세요.</p>
+    </div>
+    
+    <div class="section">
+        <h3>콘텐츠 DB</h3>
+        <p class='empty'>데이터가 없습니다.</p>
+    </div>
+</div>
+
+<!-- ═══════ 크로스 비교 ═══════ -->
+<div id="tab-cross" class="tab-content">
+    <div class="section">
+        <h2>크로스 플랫폼 비교</h2>
+        <p style="color:#888;font-size:13px;margin-bottom:16px;">같은 날 2개 이상 채널에 올린 콘텐츠의 채널별 성과를 비교합니다.</p>
+        <div>                            <div id="80e62e33-45b3-4c5c-ae89-8f3c2ddcaf37" class="plotly-graph-div" style="height:350px; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("80e62e33-45b3-4c5c-ae89-8f3c2ddcaf37")) {                    Plotly.newPlot(                        "80e62e33-45b3-4c5c-ae89-8f3c2ddcaf37",                        [{"marker":{"color":"#E1306C"},"name":"Instagram","x":["\uc606\uc790\ub9ac \ub514\uc790\uc774\ub108\ub2d8 \uc81c \uc0ac\uc9c4\uac16","\ubd04\uc774\uad6c\ub098~~\ud83c\udf38\ud83c\udf3c\ud83c\udf3a\ud83c\udf39\ud83c\udf37\ud83c\udf3b\n#\ubd04","\ud83c\udf6f\ud658\uc808\uae30\uc5d0 \ud53c\ubd80 \ud654\uc7a5 \ub2e4 \ub728","\ubb36\uc744\uae4c \ud480\uae4c\u2753\u2757\ufe0f\u2049\ufe0f"],"y":[290,246,159,15],"type":"bar"},{"marker":{"color":"#FF0000"},"name":"YouTube","x":["\uc606\uc790\ub9ac \ub514\uc790\uc774\ub108\ub2d8 \uc81c \uc0ac\uc9c4\uac16","\ubd04\uc774\uad6c\ub098~~\ud83c\udf38\ud83c\udf3c\ud83c\udf3a\ud83c\udf39\ud83c\udf37\ud83c\udf3b\n#\ubd04","\ud83c\udf6f\ud658\uc808\uae30\uc5d0 \ud53c\ubd80 \ud654\uc7a5 \ub2e4 \ub728","\ubb36\uc744\uae4c \ud480\uae4c\u2753\u2757\ufe0f\u2049\ufe0f"],"y":[2075,481,1911,3266],"type":"bar"},{"marker":{"color":"#000000"},"name":"TikTok","x":["\uc606\uc790\ub9ac \ub514\uc790\uc774\ub108\ub2d8 \uc81c \uc0ac\uc9c4\uac16","\ubd04\uc774\uad6c\ub098~~\ud83c\udf38\ud83c\udf3c\ud83c\udf3a\ud83c\udf39\ud83c\udf37\ud83c\udf3b\n#\ubd04","\ud83c\udf6f\ud658\uc808\uae30\uc5d0 \ud53c\ubd80 \ud654\uc7a5 \ub2e4 \ub728","\ubb36\uc744\uae4c \ud480\uae4c\u2753\u2757\ufe0f\u2049\ufe0f"],"y":[0,0,0,0],"type":"bar"}],                        {"template":{"data":{"barpolar":[{"marker":{"line":{"color":"white","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"white","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"#C8D4E3","linecolor":"#C8D4E3","minorgridcolor":"#C8D4E3","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"#C8D4E3","linecolor":"#C8D4E3","minorgridcolor":"#C8D4E3","startlinecolor":"#2a3f5f"},"type":"carpet"}],"choropleth":[{"colorbar":{"outlinewidth":0,"ticks":""},"type":"choropleth"}],"contourcarpet":[{"colorbar":{"outlinewidth":0,"ticks":""},"type":"contourcarpet"}],"contour":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"contour"}],"heatmap":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"heatmap"}],"histogram2dcontour":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"histogram2dcontour"}],"histogram2d":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"histogram2d"}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"mesh3d":[{"colorbar":{"outlinewidth":0,"ticks":""},"type":"mesh3d"}],"parcoords":[{"line":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"parcoords"}],"pie":[{"automargin":true,"type":"pie"}],"scatter3d":[{"line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatter3d"}],"scattercarpet":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattercarpet"}],"scattergeo":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattergeo"}],"scattergl":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattergl"}],"scattermapbox":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattermapbox"}],"scattermap":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattermap"}],"scatterpolargl":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatterpolargl"}],"scatterpolar":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatterpolar"}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"scatterternary":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatterternary"}],"surface":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"surface"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}]},"layout":{"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"autotypenumbers":"strict","coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]],"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]},"colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"geo":{"bgcolor":"white","lakecolor":"white","landcolor":"white","showlakes":true,"showland":true,"subunitcolor":"#C8D4E3"},"hoverlabel":{"align":"left"},"hovermode":"closest","mapbox":{"style":"light"},"paper_bgcolor":"white","plot_bgcolor":"white","polar":{"angularaxis":{"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":""},"bgcolor":"white","radialaxis":{"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":""}},"scene":{"xaxis":{"backgroundcolor":"white","gridcolor":"#DFE8F3","gridwidth":2,"linecolor":"#EBF0F8","showbackground":true,"ticks":"","zerolinecolor":"#EBF0F8"},"yaxis":{"backgroundcolor":"white","gridcolor":"#DFE8F3","gridwidth":2,"linecolor":"#EBF0F8","showbackground":true,"ticks":"","zerolinecolor":"#EBF0F8"},"zaxis":{"backgroundcolor":"white","gridcolor":"#DFE8F3","gridwidth":2,"linecolor":"#EBF0F8","showbackground":true,"ticks":"","zerolinecolor":"#EBF0F8"}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"ternary":{"aaxis":{"gridcolor":"#DFE8F3","linecolor":"#A2B1C6","ticks":""},"baxis":{"gridcolor":"#DFE8F3","linecolor":"#A2B1C6","ticks":""},"bgcolor":"white","caxis":{"gridcolor":"#DFE8F3","linecolor":"#A2B1C6","ticks":""}},"title":{"x":0.05},"xaxis":{"automargin":true,"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":"","title":{"standoff":15},"zerolinecolor":"#EBF0F8","zerolinewidth":2},"yaxis":{"automargin":true,"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":"","title":{"standoff":15},"zerolinecolor":"#EBF0F8","zerolinewidth":2}}},"margin":{"t":30,"b":60},"xaxis":{"tickangle":-30},"barmode":"group","height":350,"yaxis":{"title":{"text":"\uc870\ud68c\uc218"}}},                        {"responsive": true}                    )                };            </script>        </div>
+    </div>
+    <div class="section">
+        <h3>상세 비교표</h3>
+        
+    <table class="cross-table">
+        <thead><tr>
+            <th style="text-align:left" rowspan="2">콘텐츠</th><th rowspan="2">게시일</th>
+            <th colspan="2" style="color:#E1306C">Instagram</th>
+            <th colspan="2" style="color:#FF0000">YouTube</th>
+            <th colspan="2">TikTok</th>
+            <th rowspan="2">총조회</th><th rowspan="2">최고채널</th>
+        </tr><tr>
+            <th>조회</th><th>좋아요</th><th>조회</th><th>좋아요</th><th>조회</th><th>좋아요</th>
+        </tr></thead>
+        <tbody><tr>
+            <td style="text-align:left">옆자리 디자이너님 제 사진갖고 월루해</td>
+            <td>2026-04-02</td>
+            <td>290</td>
+            <td>4</td>
+            <td>2.1K</td>
+            <td>8</td>
+            <td>0</td>
+            <td>0</td>
+            <td>2.4K</td>
+            <td style="color:#FF0000;font-weight:700">YouTube</td>
+        </tr><tr>
+            <td style="text-align:left">봄이구나~~🌸🌼🌺🌹🌷🌻
+#봄이구나 #</td>
+            <td>2026-03-31</td>
+            <td>246</td>
+            <td>4</td>
+            <td>481</td>
+            <td>6</td>
+            <td>0</td>
+            <td>0</td>
+            <td>727</td>
+            <td style="color:#FF0000;font-weight:700">YouTube</td>
+        </tr><tr>
+            <td style="text-align:left">🍯환절기에 피부 화장 다 뜨고 무너진</td>
+            <td>2026-03-27</td>
+            <td>159</td>
+            <td>4</td>
+            <td>1.9K</td>
+            <td>6</td>
+            <td>0</td>
+            <td>0</td>
+            <td>2.1K</td>
+            <td style="color:#FF0000;font-weight:700">YouTube</td>
+        </tr><tr>
+            <td style="text-align:left">묶을까 풀까❓❗️⁉️</td>
+            <td>2026-03-25</td>
+            <td>15</td>
+            <td>4</td>
+            <td>3.3K</td>
+            <td>12</td>
+            <td>0</td>
+            <td>0</td>
+            <td>3.3K</td>
+            <td style="color:#FF0000;font-weight:700">YouTube</td>
+        </tr></tbody>
+    </table>
+    </div>
+</div>
+
+<!-- 푸터 -->
+<div class="footer">
+    유아연 SNS 성과 자동화 리포트 | 생성: 2026-04-03 07:33:54
+</div>
+
+<script>
+// 탭 전환
+function openTab(evt, tabId) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    evt.currentTarget.classList.add('active');
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
+}
+
+// ── 주간 네비게이션 ──
+const SUMMARY_DATA = [{"날짜": "2026-04-02", "채널": "Instagram", "총게시물수": 5, "총조회수": 0, "총좋아요": 22, "총댓글": 0, "총공유": 0, "평균참여율(%)": 48.89, "팔로워수": 9}, {"날짜": "2026-04-02", "채널": "Instagram", "총게시물수": 5, "총조회수": 0, "총좋아요": 22, "총댓글": 0, "총공유": 0, "평균참여율(%)": 21.68, "팔로워수": 9}, {"날짜": "2026-04-02", "채널": "Instagram", "총게시물수": 5, "총조회수": 0, "총좋아요": 22, "총댓글": 0, "총공유": 0, "평균참여율(%)": 21.68, "팔로워수": 9}, {"날짜": "2026-04-02", "채널": "YouTube", "총게시물수": 3, "총조회수": 5562, "총좋아요": 23, "총댓글": 2, "총공유": 0, "평균참여율(%)": 0.68, "팔로워수": 7}, {"날짜": "2026-04-02", "채널": "Instagram", "총게시물수": 5, "총조회수": 0, "총좋아요": 22, "총댓글": 0, "총공유": 0, "평균참여율(%)": 21.68, "팔로워수": 9}, {"날짜": "2026-04-02", "채널": "YouTube", "총게시물수": 3, "총조회수": 5562, "총좋아요": 23, "총댓글": 2, "총공유": 0, "평균참여율(%)": 0.68, "팔로워수": 7}, {"날짜": "2026-04-02", "채널": "Instagram", "총게시물수": 5, "총조회수": 0, "총좋아요": 22, "총댓글": 0, "총공유": 0, "평균참여율(%)": 21.68, "팔로워수": 9}, {"날짜": "2026-04-02", "채널": "YouTube", "총게시물수": 3, "총조회수": 5562, "총좋아요": 23, "총댓글": 2, "총공유": 0, "평균참여율(%)": 0.68, "팔로워수": 7}, {"날짜": "2026-04-02", "채널": "Instagram", "총게시물수": 5, "총조회수": 0, "총좋아요": 22, "총댓글": 0, "총공유": 0, "평균참여율(%)": 21.68, "팔로워수": 9}, {"날짜": "2026-04-02", "채널": "YouTube", "총게시물수": 3, "총조회수": 5583, "총좋아요": 23, "총댓글": 2, "총공유": 0, "평균참여율(%)": 0.66, "팔로워수": 7}, {"날짜": "2026-04-02", "채널": "Instagram", "총게시물수": 5, "총조회수": 540, "총좋아요": 22, "총댓글": 0, "총공유": 0, "평균참여율(%)": 21.68, "팔로워수": 9}, {"날짜": "2026-04-02", "채널": "YouTube", "총게시물수": 3, "총조회수": 5583, "총좋아요": 23, "총댓글": 2, "총공유": 0, "평균참여율(%)": 0.66, "팔로워수": 7}, {"날짜": "2026-04-02", "채널": "Instagram", "총게시물수": 5, "총조회수": 540, "총좋아요": 22, "총댓글": 0, "총공유": 0, "평균참여율(%)": 21.68, "팔로워수": 9}, {"날짜": "2026-04-02", "채널": "YouTube", "총게시물수": 3, "총조회수": 5583, "총좋아요": 23, "총댓글": 2, "총공유": 0, "평균참여율(%)": 0.66, "팔로워수": 7}, {"날짜": "2026-04-02", "채널": "Instagram", "총게시물수": 5, "총조회수": 540, "총좋아요": 22, "총댓글": 0, "총공유": 0, "평균참여율(%)": 21.68, "팔로워수": 9}, {"날짜": "2026-04-02", "채널": "YouTube", "총게시물수": 3, "총조회수": 5583, "총좋아요": 23, "총댓글": 2, "총공유": 0, "평균참여율(%)": 0.66, "팔로워수": 7}, {"날짜": "2026-04-02", "채널": "Instagram", "총게시물수": 5, "총조회수": 540, "총좋아요": 22, "총댓글": 0, "총공유": 0, "평균참여율(%)": 21.68, "팔로워수": 9}, {"날짜": "2026-04-02", "채널": "YouTube", "총게시물수": 3, "총조회수": 5583, "총좋아요": 23, "총댓글": 2, "총공유": 0, "평균참여율(%)": 0.66, "팔로워수": 7}, {"날짜": "2026-04-02", "채널": "Instagram", "총게시물수": 5, "총조회수": 540, "총좋아요": 22, "총댓글": 0, "총공유": 0, "평균참여율(%)": 21.68, "팔로워수": 9}, {"날짜": "2026-04-02", "채널": "YouTube", "총게시물수": 3, "총조회수": 5583, "총좋아요": 23, "총댓글": 2, "총공유": 0, "평균참여율(%)": 0.66, "팔로워수": 7}, {"날짜": "2026-04-03", "채널": "YouTube", "총게시물수": 4, "총조회수": 7726, "총좋아요": 31, "총댓글": 3, "총공유": 0, "평균참여율(%)": 0.56, "팔로워수": 8}, {"날짜": "2026-04-03", "채널": "Instagram", "총게시물수": 6, "총조회수": 833, "총좋아요": 26, "총댓글": 1, "총공유": 0, "평균참여율(%)": 16.55, "팔로워수": 9}, {"날짜": "2026-04-03", "채널": "YouTube", "총게시물수": 4, "총조회수": 7726, "총좋아요": 31, "총댓글": 3, "총공유": 0, "평균참여율(%)": 0.56, "팔로워수": 8}, {"날짜": "2026-04-03", "채널": "Instagram", "총게시물수": 6, "총조회수": 833, "총좋아요": 26, "총댓글": 1, "총공유": 0, "평균참여율(%)": 16.55, "팔로워수": 9}, {"날짜": "2026-04-03", "채널": "YouTube", "총게시물수": 4, "총조회수": 7728, "총좋아요": 31, "총댓글": 3, "총공유": 0, "평균참여율(%)": 0.56, "팔로워수": 8}, {"날짜": "2026-04-03", "채널": "Instagram", "총게시물수": 6, "총조회수": 836, "총좋아요": 26, "총댓글": 1, "총공유": 0, "평균참여율(%)": 16.55, "팔로워수": 9}, {"날짜": "2026-04-03", "채널": "YouTube", "총게시물수": 4, "총조회수": 7733, "총좋아요": 32, "총댓글": 3, "총공유": 0, "평균참여율(%)": 0.6, "팔로워수": 8}];
+const CHANNEL_COLORS = {"Instagram":"#E1306C","YouTube":"#FF0000","TikTok":"#000000"};
+const TODAY = "2026-04-03";
+let weekOffset = 0;
+
+function getMonday(d) {
+    const dt = new Date(d);
+    const day = dt.getDay();
+    const diff = dt.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(dt.setDate(diff));
+}
+
+function addDays(d, n) {
+    const dt = new Date(d);
+    dt.setDate(dt.getDate() + n);
+    return dt;
+}
+
+function fmtDate(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function fmtShort(d) {
+    return (d.getMonth()+1) + '.' + String(d.getDate()).padStart(2,'0');
+}
+
+function changeWeek(dir) {
+    weekOffset += dir;
+    const todayMon = getMonday(new Date(TODAY));
+    const targetMon = addDays(todayMon, weekOffset * 7);
+    const targetSun = addDays(targetMon, 6);
+
+    // 미래 주 차단
+    if (targetMon > getMonday(new Date(TODAY))) {
+        weekOffset -= dir;
+        return;
+    }
+    document.getElementById('week-next-btn').disabled = (weekOffset >= 0);
+
+    renderWeek(targetMon, targetSun);
+}
+
+function renderWeek(mon, sun) {
+    const days = [];
+    const labels = [];
+    for (let i = 0; i < 7; i++) {
+        const d = addDays(mon, i);
+        days.push(fmtDate(d));
+        labels.push(fmtShort(d));
+    }
+
+    // 제목
+    document.getElementById('week-title').innerHTML =
+        '주간 추이 <span style="font-size:14px;color:#888;font-weight:400">(' + fmtShort(mon) + ' ~ ' + fmtShort(sun) + ')</span>';
+
+    // 이 주의 데이터 필터
+    const weekData = SUMMARY_DATA.filter(r => r['날짜'] >= days[0] && r['날짜'] <= days[6]);
+    const channels = [...new Set(weekData.map(r => r['채널']))];
+
+    // 차트 그리기 함수
+    function plotChart(divId, field, yTitle, fmt) {
+        const traces = channels.map(ch => {
+            const chData = {};
+            weekData.filter(r => r['채널'] === ch).forEach(r => { chData[r['날짜']] = parseFloat(r[field]) || 0; });
+            return {
+                x: labels,
+                y: days.map(d => chData[d] !== undefined ? chData[d] : null),
+                mode: 'lines+markers',
+                name: ch,
+                connectgaps: true,
+                line: { color: CHANNEL_COLORS[ch] || '#666', width: 2 },
+                hovertemplate: fmt
+            };
+        });
+        Plotly.react(divId, traces.length ? traces : [{x:labels,y:labels.map(()=>null),mode:'lines'}], {
+            template: 'plotly_white', height: 280,
+            margin: { t: 20, b: 40, l: 50, r: 20 },
+            yaxis: { title: yTitle },
+            legend: { orientation: 'h', y: -0.2 },
+            xaxis: { type: 'category' }
+        }, { responsive: true });
+    }
+
+    plotChart('chart-views', '총조회수', '조회수', '%{y:,.0f}<extra></extra>');
+    plotChart('chart-followers', '팔로워수', '팔로워', '%{y:,.0f}<extra></extra>');
+    plotChart('chart-engagement', '평균참여율(%)', '참여율 (%)', '%{y:.1f}%<extra></extra>');
+
+    // 테이블
+    let tbl = '<table><thead><tr><th style="text-align:left">날짜</th><th>채널</th><th>게시물</th><th>조회수</th><th>좋아요</th><th>댓글</th><th>참여율</th><th>팔로워</th></tr></thead><tbody>';
+    days.slice().reverse().forEach(d => {
+        const dayRows = weekData.filter(r => r['날짜'] === d);
+        const short = fmtShort(new Date(d));
+        dayRows.forEach(r => {
+            const color = CHANNEL_COLORS[r['채널']] || '#666';
+            tbl += '<tr><td>' + short + '</td><td style="color:' + color + ';font-weight:600">' + r['채널'] + '</td>'
+                + '<td>' + (r['총게시물수']||0) + '</td><td>' + Number(r['총조회수']||0).toLocaleString() + '</td>'
+                + '<td>' + Number(r['총좋아요']||0).toLocaleString() + '</td><td>' + Number(r['총댓글']||0).toLocaleString() + '</td>'
+                + '<td>' + Number(r['평균참여율(%)']||0).toFixed(1) + '%</td><td>' + Number(r['팔로워수']||0).toLocaleString() + '</td></tr>';
+        });
+    });
+    tbl += '</tbody></table>';
+    if (!weekData.length) tbl = '<p class="empty">이 주간에는 데이터가 없습니다.</p>';
+    document.getElementById('weekly-table').innerHTML = tbl;
+}
+
+// 초기 렌더링
+document.addEventListener('DOMContentLoaded', () => {
+    const todayMon = getMonday(new Date(TODAY));
+    const todaySun = addDays(todayMon, 6);
+    document.getElementById('week-next-btn').disabled = true;
+    renderWeek(todayMon, todaySun);
+});
+</script>
+</body>
+</html>
