@@ -58,9 +58,10 @@ jobs:
           LATEST=$(ls -t reports/*.html 2>/dev/null | head -1)
           if [ -n "$LATEST" ]; then
             cp "$LATEST" docs/index.html
-            # 날짜별 보고서도 복사
             cp reports/*.html docs/
           fi
+          # TikTok 도메인 인증 파일 복사
+          cp tiktokcxgdO5gKkR8iXROaQljrvic7xYJc678o.txt docs/ 2>/dev/null || true
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
