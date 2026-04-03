@@ -565,8 +565,8 @@ td a:hover {{ text-decoration:underline; }}
             <button class="week-btn" id="week-next-btn" onclick="changeWeek(1)">다음 주 &rarr;</button>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-            <div><h3 style="font-size:14px;color:#555;margin-bottom:8px">조회수</h3><div id="chart-views"></div></div>
-            <div><h3 style="font-size:14px;color:#555;margin-bottom:8px">팔로워</h3><div id="chart-followers"></div></div>
+            <div><h3 style="font-size:14px;color:#555;margin-bottom:8px">일간 조회수 증가</h3><div id="chart-views"></div></div>
+            <div><h3 style="font-size:14px;color:#555;margin-bottom:8px">팔로워 증감</h3><div id="chart-followers"></div></div>
         </div>
         <div style="margin-top:12px">
             <h3 style="font-size:14px;color:#555;margin-bottom:8px">참여율</h3>
@@ -745,21 +745,28 @@ function renderWeek(mon, sun) {{
         }}, {{ responsive: true }});
     }}
 
-    plotChart('chart-views', '총조회수', '조회수', '%{{y:,.0f}}<extra></extra>');
-    plotChart('chart-followers', '팔로워수', '팔로워', '%{{y:,.0f}}<extra></extra>');
+    plotChart('chart-views', '일간조회수', '일간 조회수', '%{{y:,.0f}}<extra></extra>');
+    plotChart('chart-followers', '팔로워증감', '팔로워 증감', '%{{y:,.0f}}<extra></extra>');
     plotChart('chart-engagement', '평균참여율(%)', '참여율 (%)', '%{{y:.1f}}%<extra></extra>');
 
     // 테이블
-    let tbl = '<table><thead><tr><th style="text-align:left">날짜</th><th>채널</th><th>게시물</th><th>조회수</th><th>좋아요</th><th>댓글</th><th>참여율</th><th>팔로워</th></tr></thead><tbody>';
+    let tbl = '<table><thead><tr><th style="text-align:left">날짜</th><th>채널</th><th>일간조회</th><th>일간좋아요</th><th>일간댓글</th><th>참여율</th><th>팔로워증감</th><th>팔로워</th></tr></thead><tbody>';
     days.slice().reverse().forEach(d => {{
         const dayRows = weekData.filter(r => r['날짜'] === d);
         const short = fmtShort(new Date(d));
         dayRows.forEach(r => {{
             const color = CHANNEL_COLORS[r['채널']] || '#666';
+            const dv = Number(r['일간조회수']||0);
+            const dl = Number(r['일간좋아요']||0);
+            const dc = Number(r['일간댓글']||0);
+            const fg = Number(r['팔로워증감']||0);
             tbl += '<tr><td>' + short + '</td><td style="color:' + color + ';font-weight:600">' + r['채널'] + '</td>'
-                + '<td>' + (r['총게시물수']||0) + '</td><td>' + Number(r['총조회수']||0).toLocaleString() + '</td>'
-                + '<td>' + Number(r['총좋아요']||0).toLocaleString() + '</td><td>' + Number(r['총댓글']||0).toLocaleString() + '</td>'
-                + '<td>' + Number(r['평균참여율(%)']||0).toFixed(1) + '%</td><td>' + Number(r['팔로워수']||0).toLocaleString() + '</td></tr>';
+                + '<td>' + (dv >= 0 ? '+' : '') + dv.toLocaleString() + '</td>'
+                + '<td>' + (dl >= 0 ? '+' : '') + dl.toLocaleString() + '</td>'
+                + '<td>' + (dc >= 0 ? '+' : '') + dc.toLocaleString() + '</td>'
+                + '<td>' + Number(r['평균참여율(%)']||0).toFixed(1) + '%</td>'
+                + '<td style="color:' + (fg >= 0 ? '#27ae60' : '#e74c3c') + '">' + (fg >= 0 ? '+' : '') + fg.toLocaleString() + '</td>'
+                + '<td>' + Number(r['팔로워수']||0).toLocaleString() + '</td></tr>';
         }});
     }});
     tbl += '</tbody></table>';

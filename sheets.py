@@ -112,6 +112,10 @@ def write_summary(summaries):
             s.get("총공유", 0),
             s.get("평균참여율(%)", 0),
             s.get("팔로워수", 0),
+            s.get("일간조회수", 0),
+            s.get("일간좋아요", 0),
+            s.get("일간댓글", 0),
+            s.get("팔로워증감", 0),
         ]
         rows.append(row)
 

@@ -93,19 +93,7 @@ def main():
     # ── 2단계: 구글시트 기록 ──
     print("\n[2/5] 구글시트에 데이터 기록 중...")
 
-    try:
-        for channel_key, posts in channel_posts.items():
-            write_post_data(channel_key, posts)
-        write_summary(channel_summaries)
-    except Exception as e:
-        msg = f"구글시트 기록 실패: {e}"
-        print(f"  [Sheets] {msg}")
-        errors.append(msg)
-
-    # ── 3단계: 전일 대비 분석 ──
-    print("\n[3/5] 전일 대비 성과 분석 중...")
-
-    # 전일 요약 데이터
+    # 전일 요약 데이터 먼저 가져오기 (일간 증감 계산용)
     prev_summaries = []
     try:
         prev_summaries = get_previous_data("summary", yesterday)
@@ -118,6 +106,28 @@ def main():
                         s[key] = 0
     except Exception as e:
         print(f"  전일 요약 데이터 조회 실패: {e}")
+
+    # 전일 데이터와 비교하여 일간 증감 계산
+    prev_map = {s.get("채널", ""): s for s in prev_summaries}
+    for summary in channel_summaries:
+        channel = summary.get("채널", "")
+        prev = prev_map.get(channel, {})
+        summary["일간조회수"] = int(summary.get("총조회수", 0) - prev.get("총조회수", 0))
+        summary["일간좋아요"] = int(summary.get("총좋아요", 0) - prev.get("총좋아요", 0))
+        summary["일간댓글"] = int(summary.get("총댓글", 0) - prev.get("총댓글", 0))
+        summary["팔로워증감"] = int(summary.get("팔로워수", 0) - prev.get("팔로워수", 0))
+
+    try:
+        for channel_key, posts in channel_posts.items():
+            write_post_data(channel_key, posts)
+        write_summary(channel_summaries)
+    except Exception as e:
+        msg = f"구글시트 기록 실패: {e}"
+        print(f"  [Sheets] {msg}")
+        errors.append(msg)
+
+    # ── 3단계: 전일 대비 분석 ──
+    print("\n[3/5] 전일 대비 성과 분석 중...")
 
     # 전일 게시물 데이터 (Top 성장 게시물 계산용)
     prev_posts = {}
