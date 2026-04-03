@@ -6,6 +6,10 @@ on:
     - cron: '0 0 * * *'
   workflow_dispatch:  # 수동 실행 가능
 
+permissions:
+  contents: write
+  pages: write
+
 jobs:
   collect-and-report:
     runs-on: ubuntu-latest
@@ -45,9 +49,20 @@ jobs:
       - name: Run SNS Performance Report
         run: python main.py
 
-      - name: Upload HTML report
-        uses: actions/upload-artifact@v4
+      - name: Prepare GitHub Pages
+        run: |
+          mkdir -p docs
+          # 오늘 보고서를 index.html로 복사 (최신 보고서)
+          LATEST=$(ls -t reports/*.html 2>/dev/null | head -1)
+          if [ -n "$LATEST" ]; then
+            cp "$LATEST" docs/index.html
+            # 날짜별 보고서도 복사
+            cp reports/*.html docs/
+          fi
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          name: sns-report-${{ github.run_id }}
-          path: reports/*.html
-          retention-days: 30
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          keep_files: true
