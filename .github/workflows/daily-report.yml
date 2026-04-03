@@ -4,6 +4,8 @@ on:
   schedule:
     # 매일 한국시간 오전 9시 (UTC 0시)
     - cron: '0 0 * * *'
+  push:
+    branches: [main]  # 코드 push 시 자동 실행
   workflow_dispatch:  # 수동 실행 가능
 
 permissions:
