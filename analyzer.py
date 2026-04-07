@@ -125,8 +125,29 @@ def find_top_growing_posts(today_posts, prev_posts, top_n=5):
     return growth_list[:top_n]
 
 
+def _normalize_caption(caption):
+    """캡션에서 유사도 비교용 키워드만 추출"""
+    import re
+    if not caption:
+        return ""
+    # 해시태그, 이모지, 특수문자, 공백 제거 후 소문자화
+    text = re.sub(r'#\S+', '', caption)
+    text = re.sub(r'[^\w가-힣]', '', text)
+    return text.lower()[:20]  # 앞 20자만
+
+
+def _caption_similarity(c1, c2):
+    """두 캡션의 유사도 (0~1)"""
+    n1, n2 = _normalize_caption(c1), _normalize_caption(c2)
+    if not n1 or not n2:
+        return 0
+    # 공통 문자 비율
+    common = sum(1 for ch in n1 if ch in n2)
+    return common / max(len(n1), len(n2))
+
+
 def build_cross_comparison(channel_posts):
-    """동일 게시일 콘텐츠를 그룹핑하여 크로스 비교 데이터를 생성합니다.
+    """동일 콘텐츠(같은 게시일 + 유사한 캡션)를 매칭하여 크로스 비교 데이터를 생성합니다.
 
     Args:
         channel_posts: Dict[channel_key, List[Dict]] - 채널별 게시물 데이터
@@ -134,46 +155,66 @@ def build_cross_comparison(channel_posts):
     Returns:
         List[Dict] - 크로스 비교 데이터
     """
-    # 게시일별로 그룹핑
-    by_date = {}
-    for channel_key, posts in channel_posts.items():
-        for post in posts:
-            pub_date = post.get("게시일", "")
-            if not pub_date:
-                continue
-            if pub_date not in by_date:
-                by_date[pub_date] = {}
-            by_date[pub_date][channel_key] = post
+    ig_posts = channel_posts.get("instagram", [])
+    yt_posts = channel_posts.get("youtube", [])
+    tt_posts = channel_posts.get("tiktok", [])
+
+    # 기준: Instagram 게시물 (가장 많이 쓰는 채널로 가정)
+    # IG가 없으면 YT → TT 순으로 기준 설정
+    base_posts = ig_posts or yt_posts or tt_posts
+    if not base_posts:
+        return []
 
     cross_data = []
-    for pub_date in sorted(by_date.keys(), reverse=True):
-        channels = by_date[pub_date]
-
-        # 최소 2개 채널에 같은 날 올린 콘텐츠만 비교
-        if len(channels) < 2:
+    for base in base_posts:
+        base_date = base.get("게시일", "")
+        base_caption = base.get("캡션", "")
+        if not base_date:
             continue
 
-        ig = channels.get("instagram", {})
-        yt = channels.get("youtube", {})
-        tt = channels.get("tiktok", {})
+        # 같은 날짜 + 캡션 유사도 0.5 이상인 다른 채널 게시물 매칭
+        def find_match(posts):
+            same_date = [p for p in posts if p.get("게시일", "") == base_date]
+            if not same_date:
+                return None
+            if len(same_date) == 1:
+                # 캡션 유사도 체크
+                if _caption_similarity(base_caption, same_date[0].get("캡션", "")) >= 0.4:
+                    return same_date[0]
+                return None
+            # 여러 개면 유사도 가장 높은 것
+            best = max(same_date, key=lambda p: _caption_similarity(base_caption, p.get("캡션", "")))
+            if _caption_similarity(base_caption, best.get("캡션", "")) >= 0.4:
+                return best
+            return None
 
-        # 캡션은 아무 채널에서나 가져옴
-        caption = ig.get("캡션") or yt.get("캡션") or tt.get("캡션") or ""
+        # base의 채널은 base 사용, 나머지는 매칭 시도
+        ig = base if base in ig_posts else (find_match(ig_posts) if ig_posts else None)
+        yt = base if base in yt_posts else (find_match(yt_posts) if yt_posts else None)
+        tt = base if base in tt_posts else (find_match(tt_posts) if tt_posts else None)
 
-        ig_views = _safe_num(ig.get("조회수", 0))
-        yt_views = _safe_num(yt.get("조회수", 0))
-        tt_views = _safe_num(tt.get("조회수", 0))
+        # 최소 2개 채널에 매칭되어야 비교 의미 있음
+        matched = [ch for ch in [ig, yt, tt] if ch]
+        if len(matched) < 2:
+            continue
+
+        caption = base_caption
+
+        ig_views = _safe_num(ig.get("조회수", 0)) if ig else 0
+        yt_views = _safe_num(yt.get("조회수", 0)) if yt else 0
+        tt_views = _safe_num(tt.get("조회수", 0)) if tt else 0
         total_views = ig_views + yt_views + tt_views
 
-        # 최고 채널 결정
-        best = max(
-            [("Instagram", ig_views), ("YouTube", yt_views), ("TikTok", tt_views)],
-            key=lambda x: x[1],
-        )
+        # 최고 채널 결정 (매칭된 채널 중)
+        candidates = []
+        if ig: candidates.append(("Instagram", ig_views))
+        if yt: candidates.append(("YouTube", yt_views))
+        if tt: candidates.append(("TikTok", tt_views))
+        best = max(candidates, key=lambda x: x[1])
 
         item = {
             "날짜": today,
-            "게시일": pub_date,
+            "게시일": base_date,
             "캡션": caption,
             "IG조회수": int(ig_views) if ig else "-",
             "IG좋아요": _safe_num(ig.get("좋아요", 0)) if ig else "-",

@@ -78,12 +78,13 @@ def _get_media_insights(media_id, media_type):
     instagram_manage_insights 권한이 없으면 빈 dict를 반환합니다.
     """
     # 미디어 타입별 지원 메트릭 (Meta Graph API v21.0+)
-    # REELS(VIDEO): reach, saved, shares, total_interactions, plays
-    # IMAGE/CAROUSEL: reach, saved, shares, total_interactions
-    # impressions, follows는 최신 API에서 일부 타입 미지원
+    # views: Reels/피드 모두 지원하는 실제 조회수 메트릭
+    # reach: 도달 고유 계정수
+    # REELS(VIDEO): views, reach, saved, shares, total_interactions
+    # IMAGE/CAROUSEL: views, reach, saved, shares, total_interactions
     metric_sets = [
-        "reach,saved,shares",              # v21.0+ 안전한 조합
-        "reach,saved,shares,impressions",  # 구형 API 호환
+        "views,reach,saved,shares",        # v21.0+ 안전한 조합 (views 포함)
+        "reach,saved,shares",              # views 미지원 시 fallback
     ]
 
     insights = {}
@@ -175,18 +176,18 @@ def fetch_instagram_data():
 
         # 인사이트 조회 (instagram_manage_insights 권한 필요)
         insights = _get_media_insights(media_id, media_type)
-        # Meta API v21.0+에서 impressions/plays 미지원 → reach를 조회수로 사용
+        # views가 정확한 조회수 (reach는 도달 고유 계정수로 별개)
+        views = insights.get("views", 0)
         reach = insights.get("reach", 0)
-        views = insights.get("impressions", 0) or reach
         saved = insights.get("saved", 0)
         shares = insights.get("shares", 0)
         follows = insights.get("follows", 0)
 
-        # 참여율 계산
-        # 인사이트가 있으면: (좋아요 + 댓글 + 저장 + 공유) / 도달 * 100
-        # 인사이트가 없으면: (좋아요 + 댓글) / 팔로워수 * 100 (나중에 계산)
-        if reach > 0:
-            engagement = round((likes + comments + saved + shares) / reach * 100, 2)
+        # 참여율 계산: (좋아요 + 댓글 + 저장 + 공유) / 조회수 * 100
+        # 조회수가 없으면 도달 기준, 둘 다 없으면 팔로워 기준으로 나중에 재계산
+        base = views or reach
+        if base > 0:
+            engagement = round((likes + comments + saved + shares) / base * 100, 2)
         else:
             engagement = 0  # 팔로워 수로 나중에 재계산
 
