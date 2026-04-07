@@ -30,6 +30,8 @@ from sheets import (
 from analyzer import generate_analysis
 from slack_sender import send_slack_report, send_error_notification
 from report_generator import generate_html_report
+from grader import apply_grades, detect_anomalies, calculate_channel_grade_stats
+from ai_insights import generate_daily_insight, generate_content_recommendations
 
 
 def main():
@@ -90,8 +92,22 @@ def main():
 
     print(f"\n  총 {total_posts}개 게시물 수집 완료 ({len(channel_posts)}개 채널)")
 
+    # ── 1.5단계: 콘텐츠 등급 산정 ──
+    print("\n  콘텐츠 등급 산정 중...")
+    grade_stats_by_channel = {}
+    for channel_key, posts in channel_posts.items():
+        apply_grades(posts)
+        grade_stats = calculate_channel_grade_stats(posts)
+        grade_stats_by_channel[channel_key] = grade_stats
+        print(f"    [{channel_key}] S:{grade_stats['S']}개 A:{grade_stats['A']}개 B:{grade_stats['B']}개 C:{grade_stats['C']}개 (S+A비율 {grade_stats['SA비율']}%)")
+
+    # 이상치 감지
+    anomalies = detect_anomalies(channel_posts)
+    if anomalies:
+        print(f"\n  🚨 이상치 감지: {len(anomalies)}개 게시물이 평균 대비 {anomalies[0]['평균대비']}배 이상")
+
     # ── 2단계: 구글시트 기록 ──
-    print("\n[2/5] 구글시트에 데이터 기록 중...")
+    print("\n[2/6] 구글시트에 데이터 기록 중...")
 
     # 전일 요약 데이터 먼저 가져오기 (일간 증감 계산용)
     prev_summaries = []
@@ -127,7 +143,7 @@ def main():
         errors.append(msg)
 
     # ── 3단계: 전일 대비 분석 ──
-    print("\n[3/5] 전일 대비 성과 분석 중...")
+    print("\n[3/6] 전일 대비 성과 분석 중...")
 
     # 전일 게시물 데이터 (Top 성장 게시물 계산용)
     prev_posts = {}
@@ -165,8 +181,25 @@ def main():
             print(f"  [Sheets] {msg}")
             errors.append(msg)
 
-    # ── 4단계: 슬랙 전송 ──
-    print("\n[4/5] 슬랙에 리포트 전송 중...")
+    # ── 4단계: AI 인사이트 생성 ──
+    print("\n[4/6] AI 인사이트 생성 중...")
+
+    ai_data = {"일일_인사이트": {}, "콘텐츠_추천": []}
+    try:
+        insight = generate_daily_insight(channel_summaries, channel_posts, analysis, anomalies)
+        ai_data["일일_인사이트"] = insight
+        if insight.get("요약"):
+            print(f"  [AI] {insight['요약'][:100]}...")
+
+        recommendations = generate_content_recommendations(channel_posts, analysis.get("성장_TOP5", []))
+        ai_data["콘텐츠_추천"] = recommendations
+        if recommendations:
+            print(f"  [AI] 콘텐츠 추천 {len(recommendations)}개 생성")
+    except Exception as e:
+        print(f"  [AI] 인사이트 생성 실패: {e}")
+
+    # ── 5단계: 슬랙 전송 ──
+    print("\n[5/6] 슬랙에 리포트 전송 중...")
 
     try:
         send_slack_report(analysis)
@@ -175,8 +208,8 @@ def main():
         print(f"  [Slack] {msg}")
         errors.append(msg)
 
-    # ── 5단계: HTML 보고서 생성 ──
-    print("\n[5/5] HTML 보고서 생성 중...")
+    # ── 6단계: HTML 보고서 생성 ──
+    print("\n[6/6] HTML 보고서 생성 중...")
 
     try:
         # 최근 7일 데이터 (차트용)
@@ -187,9 +220,16 @@ def main():
 
         recent_summary_data = get_recent_data("summary", days=7)
 
+        # 월별 데이터 (최근 90일)
+        monthly_summary_data = get_recent_data("summary", days=90)
+
         generate_html_report(
             analysis, channel_summaries, channel_posts,
             recent_post_data, recent_summary_data,
+            grade_stats=grade_stats_by_channel,
+            anomalies=anomalies,
+            ai_data=ai_data,
+            monthly_data=monthly_summary_data,
         )
     except Exception as e:
         msg = f"HTML 보고서 생성 실패: {e}"

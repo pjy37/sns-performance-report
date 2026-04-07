@@ -4,7 +4,7 @@ import os
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 # 날짜 설정
 today = datetime.now().strftime("%Y-%m-%d")
@@ -36,8 +36,25 @@ GOOGLE_SHEETS_REFRESH_TOKEN = os.getenv("GOOGLE_SHEETS_REFRESH_TOKEN", "")
 # ── Slack ──
 SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL", "")
 
+# ── Anthropic (AI 인사이트) ──
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+
 # ── 설정 ──
 POST_MAX_AGE_DAYS = int(os.getenv("POST_MAX_AGE_DAYS", "90"))
+
+# ── 콘텐츠 등급 기준 (구글시트 콘텐츠 DB 기준) ──
+# S: 저장율≥3% AND 좋아요율≥5%
+# A: 저장율≥1% AND 좋아요율≥3%
+# B: 좋아요율≥1%
+# C: 그 외
+GRADE_THRESHOLDS = {
+    "S": {"save_rate": 3.0, "like_rate": 5.0},
+    "A": {"save_rate": 1.0, "like_rate": 3.0},
+    "B": {"save_rate": 0.0, "like_rate": 1.0},
+}
+
+# 이상치 감지 임계값 (평균 대비 배수)
+ANOMALY_THRESHOLD = 2.0  # 평균 대비 2배 이상이면 이상치
 
 # 시트 이름
 SHEET_NAMES = {

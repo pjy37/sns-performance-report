@@ -280,12 +280,13 @@ def _build_channel_card(name, summary, url):
 
 
 def _build_post_cards(posts, platform):
-    """게시물 카드 그리드 (정렬 버튼 포함)"""
+    """게시물 카드 그리드 (정렬 버튼 + 검색 + 필터 포함)"""
     if not posts:
         return "<p class='empty'>데이터가 없습니다.</p>"
 
     show_save = platform == "instagram"
     grid_id = f"grid-{platform}"
+    search_id = f"search-{platform}"
 
     # 기본 정렬: 조회수 높은 순
     sorted_posts = sorted(posts, key=lambda x: _safe_num(x.get("조회수", 0)), reverse=True)
@@ -305,14 +306,21 @@ def _build_post_cards(posts, platform):
         if saved != "-":
             saved = _fmt(saved)
         engagement = f"{_safe_num(p.get('참여율(%)', 0)):.1f}%"
+        grade = p.get("등급", "-")
+        grade_class = f"grade-{grade}" if grade in ["S", "A", "B", "C"] else "grade-none"
 
         thumb_html = f'<img src="{thumb}" alt="" loading="lazy">' if thumb else '<div class="no-thumb">No Image</div>'
         save_row = f'<div class="post-metric"><span class="pm-label">저장</span><span class="pm-value">{saved}</span></div>' if show_save else ""
+        grade_badge = f'<span class="grade-badge {grade_class}">{grade}</span>' if grade != "-" else ""
+
+        # 검색 텍스트 (캡션 전체 포함)
+        full_caption = (p.get("캡션", "") or "").replace('"', '&quot;')
 
         cards += f"""
-        <a href="{link}" target="_blank" class="post-card" data-views="{int(views_raw)}" data-date="{pub}">
+        <a href="{link}" target="_blank" class="post-card" data-views="{int(views_raw)}" data-date="{pub}" data-grade="{grade}" data-caption="{full_caption.lower()}">
             <div class="post-thumb">
                 <span class="post-rank"></span>
+                {grade_badge}
                 {thumb_html}
             </div>
             <div class="post-info">
@@ -329,14 +337,25 @@ def _build_post_cards(posts, platform):
             </div>
         </a>"""
 
-    sort_buttons = f"""
-    <div class="sort-bar">
-        <span class="sort-label">정렬:</span>
-        <button class="sort-btn active" onclick="sortCards('{grid_id}','views',this)">조회수 높은 순</button>
-        <button class="sort-btn" onclick="sortCards('{grid_id}','date',this)">최근 업로드 순</button>
+    controls = f"""
+    <div class="card-controls">
+        <input type="text" id="{search_id}" class="search-input" placeholder="🔍 캡션으로 검색..." oninput="filterCards('{grid_id}','{search_id}')">
+        <div class="filter-group">
+            <span class="sort-label">등급:</span>
+            <button class="filter-btn active" onclick="filterGrade('{grid_id}','all',this)">전체</button>
+            <button class="filter-btn" onclick="filterGrade('{grid_id}','S',this)">S</button>
+            <button class="filter-btn" onclick="filterGrade('{grid_id}','A',this)">A</button>
+            <button class="filter-btn" onclick="filterGrade('{grid_id}','B',this)">B</button>
+            <button class="filter-btn" onclick="filterGrade('{grid_id}','C',this)">C</button>
+        </div>
+        <div class="filter-group">
+            <span class="sort-label">정렬:</span>
+            <button class="sort-btn active" onclick="sortCards('{grid_id}','views',this)">조회수 높은 순</button>
+            <button class="sort-btn" onclick="sortCards('{grid_id}','date',this)">최근 업로드 순</button>
+        </div>
     </div>"""
 
-    return f'{sort_buttons}<div class="post-grid" id="{grid_id}">{cards}</div>'
+    return f'{controls}<div class="post-grid" id="{grid_id}">{cards}</div>'
 
 
 def _build_cross_table(cross_data):
@@ -380,10 +399,157 @@ def _build_cross_table(cross_data):
 
 
 # ─────────────────────────────────────────
+#  AI 인사이트 / 이상치 / 등급 분포 섹션
+# ─────────────────────────────────────────
+
+def _build_ai_insight_section(ai_data):
+    """AI 인사이트 HTML 섹션"""
+    if not ai_data:
+        return ""
+    insight = ai_data.get("일일_인사이트", {})
+    recommendations = ai_data.get("콘텐츠_추천", [])
+    if not insight and not recommendations:
+        return ""
+
+    summary = insight.get("요약", "")
+    recommends = insight.get("추천", [])
+    warnings = insight.get("주의", [])
+
+    if not (summary or recommends or warnings or recommendations):
+        return ""
+
+    html = '<div class="section ai-section">'
+    html += '<h2><span class="ai-badge">AI</span> 오늘의 인사이트</h2>'
+
+    if summary:
+        html += f'<div class="ai-summary">{summary}</div>'
+
+    if recommends or warnings:
+        html += '<div class="ai-grid">'
+        if recommends:
+            html += '<div class="ai-box ai-recommend"><h4>💡 추천 액션</h4><ul>'
+            for r in recommends:
+                html += f'<li>{r}</li>'
+            html += '</ul></div>'
+        if warnings:
+            html += '<div class="ai-box ai-warning"><h4>⚠️ 주의사항</h4><ul>'
+            for w in warnings:
+                html += f'<li>{w}</li>'
+            html += '</ul></div>'
+        html += '</div>'
+
+    if recommendations:
+        html += '<div class="ai-box ai-ideas"><h4>🎯 다음 콘텐츠 아이디어</h4><ol>'
+        for idea in recommendations:
+            html += f'<li>{idea}</li>'
+        html += '</ol></div>'
+
+    html += '</div>'
+    return html
+
+
+def _build_anomaly_section(anomalies):
+    """이상치 감지 섹션"""
+    if not anomalies:
+        return ""
+
+    html = '<div class="section anomaly-section">'
+    html += '<h2>🔥 급상승 게시물 <span style="font-size:13px;color:#888;font-weight:400">(평균 대비 2배 이상)</span></h2>'
+    html += '<div class="anomaly-grid">'
+
+    for a in anomalies[:6]:
+        caption = a.get("캡션", "")[:30]
+        thumb = a.get("썸네일", "")
+        link = a.get("링크", "")
+        ratio = a.get("평균대비", 0)
+        views = a.get("조회수", 0)
+        channel = a.get("채널", "")
+        color = COLORS.get(channel, "#666")
+
+        thumb_html = f'<img src="{thumb}" alt="" loading="lazy">' if thumb else '<div class="no-thumb">No Image</div>'
+
+        html += f"""
+        <a href="{link}" target="_blank" class="anomaly-card">
+            <div class="anomaly-thumb">
+                {thumb_html}
+                <span class="anomaly-ratio">×{ratio}</span>
+            </div>
+            <div class="anomaly-info">
+                <div class="anomaly-channel" style="color:{color}">{channel}</div>
+                <div class="anomaly-caption">{caption}</div>
+                <div class="anomaly-views">{views:,} 조회</div>
+            </div>
+        </a>"""
+
+    html += '</div></div>'
+    return html
+
+
+def _build_grade_chart(grade_stats):
+    """채널별 등급 분포 차트"""
+    if not grade_stats:
+        return ""
+
+    channels = []
+    s_vals = []
+    a_vals = []
+    b_vals = []
+    c_vals = []
+
+    for ch_key, stats in grade_stats.items():
+        ch_name = {"instagram": "Instagram", "youtube": "YouTube", "tiktok": "TikTok"}.get(ch_key, ch_key)
+        channels.append(ch_name)
+        s_vals.append(stats.get("S", 0))
+        a_vals.append(stats.get("A", 0))
+        b_vals.append(stats.get("B", 0))
+        c_vals.append(stats.get("C", 0))
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=channels, y=s_vals, name="S급", marker_color="#f1c40f"))
+    fig.add_trace(go.Bar(x=channels, y=a_vals, name="A급", marker_color="#27ae60"))
+    fig.add_trace(go.Bar(x=channels, y=b_vals, name="B급", marker_color="#3498db"))
+    fig.add_trace(go.Bar(x=channels, y=c_vals, name="C급", marker_color="#bdc3c7"))
+    fig.update_layout(barmode="stack", template="plotly_white", height=280, margin=dict(t=20, b=30),
+                      yaxis_title="게시물 수")
+    return fig.to_html(full_html=False, include_plotlyjs=False)
+
+
+def _build_monthly_chart(monthly_data):
+    """월별 총 조회수 비교 차트"""
+    if not monthly_data:
+        return ""
+
+    # 날짜 → 월(YYYY-MM)로 변환 후 채널별 월별 합산
+    df = pd.DataFrame(monthly_data)
+    df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
+    df = df.dropna(subset=["날짜"])
+    if df.empty:
+        return ""
+
+    df["월"] = df["날짜"].dt.strftime("%Y-%m")
+    df["총조회수"] = pd.to_numeric(df["총조회수"], errors="coerce").fillna(0)
+
+    # 월별 채널별 평균 (매일 기록되는 누적값이라 평균이 안정적)
+    monthly = df.groupby(["월", "채널"])["총조회수"].max().reset_index()
+
+    fig = go.Figure()
+    for ch in monthly["채널"].unique():
+        d = monthly[monthly["채널"] == ch].sort_values("월")
+        fig.add_trace(go.Bar(
+            x=d["월"], y=d["총조회수"],
+            name=ch, marker_color=COLORS.get(ch, "#666"),
+        ))
+    fig.update_layout(barmode="group", template="plotly_white", height=300, margin=dict(t=20, b=30),
+                      yaxis_title="월말 누적 조회수")
+    return fig.to_html(full_html=False, include_plotlyjs=False)
+
+
+# ─────────────────────────────────────────
 #  메인 생성 함수
 # ─────────────────────────────────────────
 
-def generate_html_report(analysis, channel_summaries, channel_posts, recent_post_data, recent_summary_data):
+def generate_html_report(analysis, channel_summaries, channel_posts, recent_post_data, recent_summary_data,
+                         grade_stats=None, anomalies=None, ai_data=None, monthly_data=None):
     """HTML 보고서를 생성합니다."""
     _ensure_reports_dir()
 
@@ -391,8 +557,19 @@ def generate_html_report(analysis, channel_summaries, channel_posts, recent_post
     cross_data = analysis.get("크로스비교", [])
     top_growing = analysis.get("성장_TOP5", [])
 
+    grade_stats = grade_stats or {}
+    anomalies = anomalies or []
+    ai_data = ai_data or {}
+    monthly_data = monthly_data or []
+
     # 요약 맵 생성
     summary_map = {s.get("채널", ""): s for s in channel_summaries}
+
+    # 새 섹션 HTML
+    ai_section_html = _build_ai_insight_section(ai_data)
+    anomaly_section_html = _build_anomaly_section(anomalies)
+    grade_chart_html = _build_grade_chart(grade_stats)
+    monthly_chart_html = _build_monthly_chart(monthly_data)
 
     # 차트
     chart_overview = _chart_channel_overview(channel_summaries)
@@ -523,12 +700,50 @@ td a:hover {{ text-decoration:underline; }}
 .week-btn:disabled {{ opacity:0.3; cursor:not-allowed; }}
 .week-btn:disabled:hover {{ background:none; color:#667eea; border-color:#ddd; }}
 
-/* 정렬 바 */
-.sort-bar {{ display:flex; align-items:center; gap:8px; margin-bottom:14px; }}
+/* 카드 컨트롤 (검색+필터+정렬) */
+.card-controls {{ display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid #f0f0f0; }}
+.search-input {{ flex:1; min-width:200px; padding:8px 14px; border:1px solid #e0e0e0; border-radius:20px; font-size:13px; outline:none; transition:border-color 0.15s; }}
+.search-input:focus {{ border-color:#667eea; }}
+.filter-group {{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }}
 .sort-label {{ font-size:12px; color:#999; }}
-.sort-btn {{ padding:5px 14px; border:1px solid #ddd; border-radius:16px; background:#fff; font-size:12px; color:#666; cursor:pointer; transition:all 0.15s; }}
-.sort-btn:hover {{ border-color:#667eea; color:#667eea; }}
-.sort-btn.active {{ background:#667eea; color:#fff; border-color:#667eea; }}
+.sort-btn, .filter-btn {{ padding:5px 14px; border:1px solid #ddd; border-radius:16px; background:#fff; font-size:12px; color:#666; cursor:pointer; transition:all 0.15s; }}
+.sort-btn:hover, .filter-btn:hover {{ border-color:#667eea; color:#667eea; }}
+.sort-btn.active, .filter-btn.active {{ background:#667eea; color:#fff; border-color:#667eea; }}
+
+/* 등급 뱃지 */
+.grade-badge {{ position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; color:#fff; z-index:2; box-shadow:0 2px 4px rgba(0,0,0,0.2); }}
+.grade-S {{ background:linear-gradient(135deg, #f1c40f, #e67e22); }}
+.grade-A {{ background:linear-gradient(135deg, #27ae60, #16a085); }}
+.grade-B {{ background:linear-gradient(135deg, #3498db, #2980b9); }}
+.grade-C {{ background:#95a5a6; }}
+.grade-none {{ display:none; }}
+
+/* AI 인사이트 섹션 */
+.ai-section {{ background:linear-gradient(135deg, #fff, #f8f9ff); border-left:4px solid #667eea; }}
+.ai-badge {{ background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; padding:2px 10px; border-radius:10px; font-size:11px; font-weight:700; margin-right:8px; vertical-align:middle; }}
+.ai-summary {{ font-size:15px; line-height:1.7; color:#444; background:#fff; padding:16px 20px; border-radius:10px; margin-bottom:16px; border:1px solid #eef0ff; }}
+.ai-grid {{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }}
+@media (max-width: 720px) {{ .ai-grid {{ grid-template-columns:1fr; }} }}
+.ai-box {{ background:#fff; padding:16px 20px; border-radius:10px; border:1px solid #eee; }}
+.ai-box h4 {{ font-size:13px; margin-bottom:10px; color:#555; }}
+.ai-box ul, .ai-box ol {{ padding-left:20px; }}
+.ai-box li {{ font-size:13px; line-height:1.7; color:#555; margin-bottom:4px; }}
+.ai-recommend {{ border-left:3px solid #27ae60; }}
+.ai-warning {{ border-left:3px solid #e67e22; }}
+.ai-ideas {{ border-left:3px solid #667eea; }}
+
+/* 이상치 섹션 */
+.anomaly-grid {{ display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:14px; }}
+.anomaly-card {{ display:flex; background:#fff; border:1px solid #ffe0d0; border-radius:10px; overflow:hidden; text-decoration:none; color:inherit; transition:transform 0.15s, box-shadow 0.15s; }}
+.anomaly-card:hover {{ transform:translateY(-2px); box-shadow:0 4px 12px rgba(255,107,53,0.15); }}
+.anomaly-thumb {{ position:relative; width:80px; height:80px; flex-shrink:0; background:#f0f0f0; }}
+.anomaly-thumb img {{ width:100%; height:100%; object-fit:cover; }}
+.anomaly-thumb .no-thumb {{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:#ccc; font-size:11px; }}
+.anomaly-ratio {{ position:absolute; top:4px; left:4px; background:#ff6b35; color:#fff; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:800; }}
+.anomaly-info {{ flex:1; padding:10px 12px; min-width:0; }}
+.anomaly-channel {{ font-size:11px; font-weight:700; }}
+.anomaly-caption {{ font-size:12px; color:#333; margin:2px 0 4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }}
+.anomaly-views {{ font-size:12px; color:#ff6b35; font-weight:700; }}
 
 .empty {{ color:#aaa; text-align:center; padding:40px; }}
 
@@ -563,19 +778,26 @@ td a:hover {{ text-decoration:underline; }}
     <button class="tab-btn" onclick="openTab(event,'tab-youtube')" style="color:{COLORS['YouTube']}">YouTube</button>
     <button class="tab-btn" onclick="openTab(event,'tab-tiktok')">TikTok</button>
     <button class="tab-btn" onclick="openTab(event,'tab-cross')">크로스 비교</button>
+    <button class="tab-btn" onclick="openTab(event,'tab-monthly')">월별 비교</button>
 </div>
 
 <!-- ═══════ 통합 보고서 ═══════ -->
 <div id="tab-overview" class="tab-content active">
+    {ai_section_html}
+
     <div class="section">
         <h2>오늘의 채널 현황</h2>
         <div class="channel-cards">{cards}</div>
     </div>
 
+    {anomaly_section_html}
+
     <div class="section">
         <h2>채널별 성과 비교 (오늘)</h2>
         {chart_overview}
     </div>
+
+    {"<div class='section'><h2>채널별 등급 분포</h2><p style='color:#888;font-size:12px;margin-bottom:10px'>S: 저장율≥3% AND 좋아요율≥5% / A: 저장율≥1% AND 좋아요율≥3% / B: 좋아요율≥1%</p>" + grade_chart_html + "</div>" if grade_chart_html else ""}
 
     <div class="section">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #f0f0f0">
@@ -652,6 +874,15 @@ td a:hover {{ text-decoration:underline; }}
     </div>
 </div>
 
+<!-- ═══════ 월별 비교 ═══════ -->
+<div id="tab-monthly" class="tab-content">
+    <div class="section">
+        <h2>월별 성과 비교</h2>
+        <p style="color:#888;font-size:13px;margin-bottom:16px;">최근 3개월간 채널별 월말 누적 조회수 비교</p>
+        {monthly_chart_html if monthly_chart_html else "<p class='empty'>아직 월별 데이터가 충분하지 않습니다. 데이터가 쌓이면 자동으로 표시됩니다.</p>"}
+    </div>
+</div>
+
 <!-- ═══════ 크로스 비교 ═══════ -->
 <div id="tab-cross" class="tab-content">
     <div class="section">
@@ -685,7 +916,6 @@ function sortCards(gridId, sortBy, btn) {{
     const grid = document.getElementById(gridId);
     const cards = Array.from(grid.querySelectorAll('.post-card'));
 
-    // 버튼 활성화
     btn.parentElement.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
 
@@ -700,6 +930,47 @@ function sortCards(gridId, sortBy, btn) {{
     cards.forEach((card, i) => {{
         card.querySelector('.post-rank').textContent = '#' + (i + 1);
         grid.appendChild(card);
+    }});
+}}
+
+// ── 등급 필터 ──
+function filterGrade(gridId, grade, btn) {{
+    btn.parentElement.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    const grid = document.getElementById(gridId);
+    const cards = grid.querySelectorAll('.post-card');
+    let visibleIdx = 0;
+    cards.forEach(card => {{
+        const cardGrade = card.dataset.grade || '';
+        const match = (grade === 'all' || cardGrade === grade);
+        if (match) {{
+            card.style.display = '';
+            visibleIdx++;
+            card.querySelector('.post-rank').textContent = '#' + visibleIdx;
+        }} else {{
+            card.style.display = 'none';
+        }}
+    }});
+}}
+
+// ── 캡션 검색 ──
+function filterCards(gridId, searchId) {{
+    const q = (document.getElementById(searchId).value || '').toLowerCase().trim();
+    const grid = document.getElementById(gridId);
+    const cards = grid.querySelectorAll('.post-card');
+    let visibleIdx = 0;
+    cards.forEach(card => {{
+        const caption = card.dataset.caption || '';
+        const match = !q || caption.includes(q);
+        if (match && card.style.display !== 'none') {{
+            // 이미 필터로 숨겨진 게 아니면 표시
+            card.style.display = '';
+            visibleIdx++;
+            card.querySelector('.post-rank').textContent = '#' + visibleIdx;
+        }} else if (!match) {{
+            card.style.display = 'none';
+        }}
     }});
 }}
 
