@@ -548,8 +548,184 @@ def _build_monthly_chart(monthly_data):
 #  메인 생성 함수
 # ─────────────────────────────────────────
 
+def _build_weekly_status_section(weekly_status):
+    """주간 채널 현황 테이블 + 차트"""
+    if not weekly_status:
+        return ""
+
+    # 최근 8주만 표시
+    rows_data = sorted(weekly_status, key=lambda r: r.get("기준일", ""), reverse=True)[:8]
+
+    # 테이블 HTML
+    rows_html = ""
+    for r in reversed(rows_data):  # 시간 순 정렬
+        ig_d = r.get("IG순증", "-")
+        yt_d = r.get("YT순증", "-")
+        tt_d = r.get("TT순증", "-")
+        total_d = r.get("전체팔로워순증", "-")
+
+        def color(v):
+            if v in ("-", ""):
+                return "#999"
+            return "#27ae60" if str(v).startswith("+") else "#e74c3c"
+
+        rows_html += f"""<tr>
+            <td>{r.get('주차', '')}</td>
+            <td>{r.get('IG팔로워', 0):,}</td>
+            <td style="color:{color(ig_d)};font-weight:600">{ig_d}</td>
+            <td>{r.get('YT구독자', 0):,}</td>
+            <td style="color:{color(yt_d)};font-weight:600">{yt_d}</td>
+            <td>{r.get('TT팔로워', 0):,}</td>
+            <td style="color:{color(tt_d)};font-weight:600">{tt_d}</td>
+            <td style="color:{color(total_d)};font-weight:700">{total_d}</td>
+            <td>{r.get('업로드수', 0)}</td>
+            <td>{r.get('S급수', 0)}</td>
+            <td>{r.get('A급수', 0)}</td>
+            <td>{r.get('S급비율', '0%')}</td>
+        </tr>"""
+
+    table_html = f"""<table>
+        <thead><tr>
+            <th style="text-align:left">주차</th>
+            <th>IG팔로워</th><th>IG순증</th>
+            <th>YT구독자</th><th>YT순증</th>
+            <th>TT팔로워</th><th>TT순증</th>
+            <th>전체순증</th>
+            <th>업로드</th><th>S급</th><th>A급</th><th>S비율</th>
+        </tr></thead>
+        <tbody>{rows_html}</tbody>
+    </table>"""
+
+    # 팔로워 추이 차트
+    weeks = [r.get("주차", "") for r in reversed(rows_data)]
+    ig_data = [r.get("IG팔로워", 0) for r in reversed(rows_data)]
+    yt_data = [r.get("YT구독자", 0) for r in reversed(rows_data)]
+    tt_data = [r.get("TT팔로워", 0) for r in reversed(rows_data)]
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=weeks, y=ig_data, mode="lines+markers", name="Instagram",
+                             line=dict(color=COLORS["Instagram"], width=2)))
+    fig.add_trace(go.Scatter(x=weeks, y=yt_data, mode="lines+markers", name="YouTube",
+                             line=dict(color=COLORS["YouTube"], width=2)))
+    fig.add_trace(go.Scatter(x=weeks, y=tt_data, mode="lines+markers", name="TikTok",
+                             line=dict(color=COLORS["TikTok"], width=2)))
+    fig.update_layout(template="plotly_white", height=300, margin=dict(t=20, b=30),
+                      yaxis_title="팔로워 수", legend=dict(orientation="h", y=-0.18))
+    chart = fig.to_html(full_html=False, include_plotlyjs=False)
+
+    return f"""
+    <div class="section">
+        <h2>주간 채널 현황 <span style="font-size:13px;color:#888;font-weight:400">(최근 8주)</span></h2>
+        {chart}
+        <div style="margin-top:16px;overflow-x:auto">{table_html}</div>
+    </div>"""
+
+
+def _build_monthly_dashboard_section(monthly_dashboard):
+    """월간 대시보드 KPI 카드 + 테이블"""
+    if not monthly_dashboard:
+        return ""
+
+    # 최근 6개월
+    rows_data = sorted(monthly_dashboard, key=lambda r: r.get("월", ""), reverse=True)[:6]
+
+    # 이번 달 KPI
+    current = rows_data[0] if rows_data else {}
+    prev = rows_data[1] if len(rows_data) > 1 else {}
+
+    def diff_color(v):
+        if v in ("-", ""):
+            return "#999"
+        return "#27ae60" if str(v).startswith("+") else "#e74c3c"
+
+    cur_total = current.get("전체팔로워합계", 0)
+    prev_total = prev.get("전체팔로워합계", 0)
+    growth_pct = round((cur_total - prev_total) / prev_total * 100, 1) if prev_total > 0 else 0
+    growth_str = f"+{growth_pct}%" if growth_pct >= 0 else f"{growth_pct}%"
+
+    kpi_html = f"""
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-label">이번 달 총 팔로워</div>
+            <div class="kpi-value">{cur_total:,}</div>
+            <div class="kpi-sub" style="color:{diff_color(current.get('월간팔로워순증','-'))}">
+                {current.get('월간팔로워순증', '-')} 순증
+            </div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">전월 대비 성장률</div>
+            <div class="kpi-value" style="color:{diff_color(growth_str)}">{growth_str}</div>
+            <div class="kpi-sub">{prev.get('월', '-')} → {current.get('월', '-')}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">이번 달 업로드</div>
+            <div class="kpi-value">{current.get('업로드총수', 0)}건</div>
+            <div class="kpi-sub">S급 {current.get('S급콘텐츠', 0)}건 ({current.get('S급비율', '0%')})</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">채널 분포</div>
+            <div class="kpi-value" style="font-size:18px;line-height:1.4">
+                IG {current.get('IG팔로워', 0)}<br>
+                YT {current.get('YT구독자', 0)}<br>
+                TT {current.get('TT팔로워', 0)}
+            </div>
+        </div>
+    </div>"""
+
+    # 월별 테이블
+    rows_html = ""
+    for r in reversed(rows_data):
+        rows_html += f"""<tr>
+            <td>{r.get('월', '')}</td>
+            <td>{r.get('IG팔로워', 0):,}</td>
+            <td>{r.get('YT구독자', 0):,}</td>
+            <td>{r.get('TT팔로워', 0):,}</td>
+            <td><strong>{r.get('전체팔로워합계', 0):,}</strong></td>
+            <td style="color:{diff_color(r.get('월간팔로워순증','-'))};font-weight:600">{r.get('월간팔로워순증', '-')}</td>
+            <td>{r.get('업로드총수', 0)}</td>
+            <td>{r.get('S급콘텐츠', 0)}</td>
+            <td>{r.get('S급비율', '0%')}</td>
+        </tr>"""
+
+    table_html = f"""<table>
+        <thead><tr>
+            <th style="text-align:left">월</th>
+            <th>IG</th><th>YT</th><th>TT</th>
+            <th>전체</th><th>월간 순증</th>
+            <th>업로드</th><th>S급</th><th>S비율</th>
+        </tr></thead>
+        <tbody>{rows_html}</tbody>
+    </table>"""
+
+    # 월별 차트
+    months = [r.get("월", "") for r in reversed(rows_data)]
+    totals = [r.get("전체팔로워합계", 0) for r in reversed(rows_data)]
+    s_counts = [r.get("S급콘텐츠", 0) for r in reversed(rows_data)]
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=months, y=totals, name="총 팔로워", marker_color="#667eea", yaxis="y"))
+    fig.add_trace(go.Scatter(x=months, y=s_counts, name="S급 콘텐츠", mode="lines+markers",
+                             marker_color="#f1c40f", yaxis="y2", line=dict(width=3)))
+    fig.update_layout(
+        template="plotly_white", height=320, margin=dict(t=20, b=30),
+        yaxis=dict(title="총 팔로워", side="left"),
+        yaxis2=dict(title="S급 콘텐츠 수", side="right", overlaying="y"),
+        legend=dict(orientation="h", y=-0.18),
+    )
+    chart = fig.to_html(full_html=False, include_plotlyjs=False)
+
+    return f"""
+    <div class="section">
+        <h2>월간 대시보드</h2>
+        {kpi_html}
+        <div style="margin-top:20px">{chart}</div>
+        <div style="margin-top:16px;overflow-x:auto">{table_html}</div>
+    </div>"""
+
+
 def generate_html_report(analysis, channel_summaries, channel_posts, recent_post_data, recent_summary_data,
-                         grade_stats=None, anomalies=None, ai_data=None, monthly_data=None):
+                         grade_stats=None, anomalies=None, ai_data=None, monthly_data=None,
+                         weekly_status=None, monthly_dashboard=None):
     """HTML 보고서를 생성합니다."""
     _ensure_reports_dir()
 
@@ -561,6 +737,8 @@ def generate_html_report(analysis, channel_summaries, channel_posts, recent_post
     anomalies = anomalies or []
     ai_data = ai_data or {}
     monthly_data = monthly_data or []
+    weekly_status = weekly_status or []
+    monthly_dashboard = monthly_dashboard or []
 
     # 요약 맵 생성
     summary_map = {s.get("채널", ""): s for s in channel_summaries}
@@ -570,6 +748,8 @@ def generate_html_report(analysis, channel_summaries, channel_posts, recent_post
     anomaly_section_html = _build_anomaly_section(anomalies)
     grade_chart_html = _build_grade_chart(grade_stats)
     monthly_chart_html = _build_monthly_chart(monthly_data)
+    weekly_status_html = _build_weekly_status_section(weekly_status)
+    monthly_dashboard_html = _build_monthly_dashboard_section(monthly_dashboard)
 
     # 차트
     chart_overview = _chart_channel_overview(channel_summaries)
@@ -735,6 +915,13 @@ td a:hover {{ text-decoration:underline; }}
 .ai-warning {{ border-left:3px solid #e67e22; }}
 .ai-ideas {{ border-left:3px solid #667eea; }}
 
+/* KPI 카드 (월간 대시보드) */
+.kpi-grid {{ display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px; }}
+.kpi-card {{ background:linear-gradient(135deg, #fff, #f8f9ff); padding:18px 20px; border-radius:10px; border:1px solid #eef0ff; }}
+.kpi-label {{ font-size:11px; color:#888; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; }}
+.kpi-value {{ font-size:28px; font-weight:800; color:#1a1a2e; line-height:1.2; }}
+.kpi-sub {{ font-size:12px; color:#666; margin-top:6px; }}
+
 /* 이상치 섹션 */
 .anomaly-grid {{ display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:14px; }}
 .anomaly-card {{ display:flex; background:#fff; border:1px solid #ffe0d0; border-radius:10px; overflow:hidden; text-decoration:none; color:inherit; transition:transform 0.15s, box-shadow 0.15s; }}
@@ -777,11 +964,12 @@ td a:hover {{ text-decoration:underline; }}
 <!-- 탭 네비게이션 -->
 <div class="tab-nav">
     <button class="tab-btn active" onclick="openTab(event,'tab-overview')">통합 보고서</button>
+    <button class="tab-btn" onclick="openTab(event,'tab-weekly')">주간 현황</button>
+    <button class="tab-btn" onclick="openTab(event,'tab-monthly')">월간 대시보드</button>
     <button class="tab-btn" onclick="openTab(event,'tab-instagram')" style="color:{COLORS['Instagram']}">Instagram</button>
     <button class="tab-btn" onclick="openTab(event,'tab-youtube')" style="color:{COLORS['YouTube']}">YouTube</button>
     <button class="tab-btn" onclick="openTab(event,'tab-tiktok')">TikTok</button>
     <button class="tab-btn" onclick="openTab(event,'tab-cross')">크로스 비교</button>
-    <button class="tab-btn" onclick="openTab(event,'tab-monthly')">월별 비교</button>
 </div>
 
 <!-- ═══════ 통합 보고서 ═══════ -->
@@ -877,13 +1065,15 @@ td a:hover {{ text-decoration:underline; }}
     </div>
 </div>
 
-<!-- ═══════ 월별 비교 ═══════ -->
+<!-- ═══════ 주간 현황 ═══════ -->
+<div id="tab-weekly" class="tab-content">
+    {weekly_status_html if weekly_status_html else "<div class='section'><p class='empty'>주간 현황 데이터가 아직 없습니다. 매일 자동 수집되면 채워집니다.</p></div>"}
+</div>
+
+<!-- ═══════ 월간 대시보드 ═══════ -->
 <div id="tab-monthly" class="tab-content">
-    <div class="section">
-        <h2>월별 성과 비교</h2>
-        <p style="color:#888;font-size:13px;margin-bottom:16px;">최근 3개월간 채널별 월말 누적 조회수 비교</p>
-        {monthly_chart_html if monthly_chart_html else "<p class='empty'>아직 월별 데이터가 충분하지 않습니다. 데이터가 쌓이면 자동으로 표시됩니다.</p>"}
-    </div>
+    {monthly_dashboard_html if monthly_dashboard_html else "<div class='section'><p class='empty'>월간 대시보드 데이터가 아직 없습니다.</p></div>"}
+    {"<div class='section'><h2>채널별 월말 누적 조회수 비교</h2>" + monthly_chart_html + "</div>" if monthly_chart_html else ""}
 </div>
 
 <!-- ═══════ 크로스 비교 ═══════ -->

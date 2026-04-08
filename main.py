@@ -26,6 +26,8 @@ from collectors.tiktok import fetch_tiktok_data
 from sheets import (
     write_post_data, write_summary, write_cross_comparison,
     get_previous_data, get_recent_data,
+    update_content_db, update_weekly_status, update_monthly_dashboard,
+    get_weekly_status_data, get_monthly_dashboard_data,
 )
 from analyzer import generate_analysis
 from slack_sender import send_slack_report, send_error_notification
@@ -137,6 +139,11 @@ def main():
         for channel_key, posts in channel_posts.items():
             write_post_data(channel_key, posts)
         write_summary(channel_summaries)
+
+        # 사용자 정의 시트 (콘텐츠 DB / 주간 / 월간) 자동 업데이트
+        update_content_db(channel_posts)
+        update_weekly_status(channel_summaries, grade_stats_by_channel)
+        update_monthly_dashboard(channel_summaries, grade_stats_by_channel)
     except Exception as e:
         msg = f"구글시트 기록 실패: {e}"
         print(f"  [Sheets] {msg}")
@@ -223,6 +230,10 @@ def main():
         # 월별 데이터 (최근 90일)
         monthly_summary_data = get_recent_data("summary", days=90)
 
+        # 주간/월간 사용자 시트 데이터
+        weekly_status_data = get_weekly_status_data()
+        monthly_dashboard_data = get_monthly_dashboard_data()
+
         generate_html_report(
             analysis, channel_summaries, channel_posts,
             recent_post_data, recent_summary_data,
@@ -230,6 +241,8 @@ def main():
             anomalies=anomalies,
             ai_data=ai_data,
             monthly_data=monthly_summary_data,
+            weekly_status=weekly_status_data,
+            monthly_dashboard=monthly_dashboard_data,
         )
     except Exception as e:
         msg = f"HTML 보고서 생성 실패: {e}"

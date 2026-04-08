@@ -257,3 +257,372 @@ def get_recent_data(channel_key, days=7):
     except Exception as e:
         print(f"  [Sheets] 최근 데이터 조회 실패: {e}")
         return []
+
+
+# ─────────────────────────────────────────
+#  사용자 정의 시트 (콘텐츠 DB / 주간 / 월간) 자동 업데이트
+# ─────────────────────────────────────────
+
+def _safe_int(v):
+    if isinstance(v, (int, float)):
+        return int(v)
+    if isinstance(v, str):
+        try:
+            return int(v.replace(",", "").replace("+", ""))
+        except (ValueError, TypeError):
+            return 0
+    return 0
+
+
+def _safe_float(v):
+    if isinstance(v, (int, float)):
+        return float(v)
+    if isinstance(v, str):
+        try:
+            return float(v.replace(",", "").replace("%", "").replace("+", ""))
+        except (ValueError, TypeError):
+            return 0.0
+    return 0.0
+
+
+def update_content_db(channel_posts):
+    """'콘텐츠 DB' 시트에 게시물별 데이터를 업데이트합니다.
+    같은 (날짜, 플랫폼, 콘텐츠명) 키는 덮어쓰고 새 항목은 추가합니다.
+
+    헤더: 업로드 날짜 | 플랫폼 | 콘텐츠명 | 조회수 | 좋아요 | 저장·보관·공유 |
+          팔로워 증가 | 좋아요율(%) | 저장율(%) | 등급(자동) | 주제 태그 | 포맷 | 메모
+    """
+    if not GOOGLE_SHEET_ID:
+        return
+
+    try:
+        client = _get_client()
+        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+
+        try:
+            ws = spreadsheet.worksheet("콘텐츠 DB")
+        except gspread.exceptions.WorksheetNotFound:
+            print("  [Sheets] '콘텐츠 DB' 시트가 없어 자동 업데이트를 건너뜁니다.")
+            return
+
+        # 기존 데이터 읽기 (헤더는 1행, 데이터는 2행부터)
+        all_vals = ws.get_all_values()
+        # 헤더가 row 1에 있는지 확인 (제목이 row 0)
+        if len(all_vals) < 2:
+            return
+
+        existing_keys = {}  # {(날짜, 플랫폼, 콘텐츠명): row_index}
+        for i, row in enumerate(all_vals[2:], start=3):  # 1-based, 데이터 시작 row 3
+            if len(row) >= 3:
+                key = (row[0], row[1], row[2])
+                existing_keys[key] = i
+
+        ch_label = {"instagram": "IG", "youtube": "YT", "tiktok": "TT"}
+
+        new_rows = []
+        update_cells = []  # [(row_idx, values_list)]
+
+        for channel_key, posts in channel_posts.items():
+            label = ch_label.get(channel_key, channel_key)
+            for p in posts:
+                pub_date = p.get("게시일", "")
+                caption = (p.get("캡션", "") or "")[:50]
+                if not pub_date or not caption:
+                    continue
+
+                views = _safe_int(p.get("조회수", 0))
+                likes = _safe_int(p.get("좋아요", 0))
+                saved_raw = p.get("저장", 0)
+                saved = _safe_int(saved_raw) if saved_raw != "-" else 0
+                shares = _safe_int(p.get("공유", 0))
+                save_share = saved + shares
+                follows = p.get("팔로워유입", "-")
+                follows_str = f"+{follows}" if isinstance(follows, (int, float)) and follows > 0 else (str(follows) if follows != 0 else "-")
+
+                like_rate = round(likes / views * 100, 1) if views > 0 else 0
+                save_rate = round(saved / views * 100, 1) if views > 0 else 0
+                grade = p.get("등급", "C")
+
+                row_data = [
+                    pub_date, label, caption,
+                    f"{views:,}", str(likes), str(save_share),
+                    follows_str,
+                    f"{like_rate}%", f"{save_rate}%", grade,
+                    "", "", "",  # 주제태그, 포맷, 메모는 사용자 입력
+                ]
+
+                key = (pub_date, label, caption)
+                if key in existing_keys:
+                    update_cells.append((existing_keys[key], row_data))
+                else:
+                    new_rows.append(row_data)
+
+        # 기존 행 업데이트 (조회수/좋아요/등급 등 변경된 부분)
+        for row_idx, values in update_cells:
+            try:
+                # A부터 J까지만 업데이트 (주제태그/포맷/메모는 사용자 입력 보존)
+                ws.update(f"A{row_idx}:J{row_idx}", [values[:10]])
+            except Exception as e:
+                print(f"  [Sheets] 콘텐츠 DB 업데이트 오류: {e}")
+
+        # 새 행 추가
+        if new_rows:
+            ws.append_rows(new_rows, value_input_option="USER_ENTERED")
+
+        print(f"  [Sheets] 콘텐츠 DB: 신규 {len(new_rows)}건, 업데이트 {len(update_cells)}건")
+
+    except Exception as e:
+        print(f"  [Sheets] 콘텐츠 DB 자동 업데이트 실패: {e}")
+
+
+def update_weekly_status(channel_summaries, grade_stats_by_channel, prev_week_summaries=None):
+    """'주간 채널 현황' 시트에 이번 주 데이터를 업데이트합니다.
+
+    헤더: 기준일 | 주차 | IG팔로워 | IG순증 | YT구독자 | YT순증 | TT팔로워 | TT순증 |
+          전체팔로워순증 | 업로드수 | S급수 | A급수 | S급비율 | 전주대비성장율 | 메모
+    """
+    if not GOOGLE_SHEET_ID:
+        return
+
+    try:
+        from datetime import datetime, timedelta
+        client = _get_client()
+        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+
+        try:
+            ws = spreadsheet.worksheet("주간 채널 현황")
+        except gspread.exceptions.WorksheetNotFound:
+            print("  [Sheets] '주간 채널 현황' 시트가 없어 자동 업데이트를 건너뜁니다.")
+            return
+
+        # 이번 주 월요일 계산
+        today_dt = datetime.now()
+        monday = today_dt - timedelta(days=today_dt.weekday())
+        monday_str = monday.strftime("%Y-%m-%d")
+
+        # 주차 계산 (해당 월의 N주차)
+        first_day = datetime(today_dt.year, today_dt.month, 1)
+        week_of_month = (today_dt.day + first_day.weekday()) // 7 + 1
+        week_label = f"{today_dt.month}월 {week_of_month}주차"
+
+        # 채널별 현재 팔로워
+        ig_followers = 0
+        yt_followers = 0
+        tt_followers = 0
+        for s in channel_summaries:
+            ch = s.get("채널", "")
+            f = _safe_int(s.get("팔로워수", 0))
+            if ch == "Instagram":
+                ig_followers = f
+            elif ch == "YouTube":
+                yt_followers = f
+            elif ch == "TikTok":
+                tt_followers = f
+
+        # 등급 통계
+        s_count = sum(stats.get("S", 0) for stats in grade_stats_by_channel.values())
+        a_count = sum(stats.get("A", 0) for stats in grade_stats_by_channel.values())
+        upload_count = sum(stats.get("S", 0) + stats.get("A", 0) + stats.get("B", 0) + stats.get("C", 0)
+                           for stats in grade_stats_by_channel.values())
+        s_rate = round(s_count / upload_count * 100, 1) if upload_count else 0
+
+        # 기존 행 찾기 (같은 기준일이 있으면 업데이트, 없으면 추가)
+        all_vals = ws.get_all_values()
+        target_row = None
+        for i, row in enumerate(all_vals[2:], start=3):
+            if len(row) > 0 and row[0] == monday_str:
+                target_row = i
+                break
+
+        # 전주 데이터로 순증 계산
+        ig_diff = "-"
+        yt_diff = "-"
+        tt_diff = "-"
+        total_diff = "-"
+        prev_week_growth = "-"
+
+        if len(all_vals) > 2:
+            last_row = None
+            for row in all_vals[2:]:
+                if len(row) > 0 and row[0] and row[0] != monday_str:
+                    last_row = row
+            if last_row and len(last_row) >= 7:
+                prev_ig = _safe_int(last_row[2])
+                prev_yt = _safe_int(last_row[4])
+                prev_tt = _safe_int(last_row[6])
+                ig_d = ig_followers - prev_ig
+                yt_d = yt_followers - prev_yt
+                tt_d = tt_followers - prev_tt
+                ig_diff = f"+{ig_d}" if ig_d >= 0 else str(ig_d)
+                yt_diff = f"+{yt_d}" if yt_d >= 0 else str(yt_d)
+                tt_diff = f"+{tt_d}" if tt_d >= 0 else str(tt_d)
+                total_d = ig_d + yt_d + tt_d
+                total_diff = f"+{total_d}" if total_d >= 0 else str(total_d)
+
+        row_data = [
+            monday_str, week_label,
+            str(ig_followers), ig_diff,
+            str(yt_followers), yt_diff,
+            str(tt_followers), tt_diff,
+            total_diff,
+            str(upload_count), str(s_count), str(a_count),
+            f"{s_rate}%", prev_week_growth, "",
+        ]
+
+        if target_row:
+            ws.update(f"A{target_row}:O{target_row}", [row_data])
+            print(f"  [Sheets] 주간 채널 현황 업데이트 (행 {target_row})")
+        else:
+            ws.append_row(row_data, value_input_option="USER_ENTERED")
+            print(f"  [Sheets] 주간 채널 현황 신규 추가 ({week_label})")
+
+    except Exception as e:
+        print(f"  [Sheets] 주간 채널 현황 자동 업데이트 실패: {e}")
+
+
+def update_monthly_dashboard(channel_summaries, grade_stats_by_channel):
+    """'월간 대시보드' 시트에 이번 달 데이터를 업데이트합니다.
+
+    헤더: 월 | IG팔로워 | YT구독자 | TT팔로워 | 전체팔로워합계 |
+          월간팔로워순증 | 업로드총수 | S급콘텐츠 | S급비율 | 전월대비성장율
+    """
+    if not GOOGLE_SHEET_ID:
+        return
+
+    try:
+        from datetime import datetime
+        client = _get_client()
+        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+
+        try:
+            ws = spreadsheet.worksheet("월간 대시보드")
+        except gspread.exceptions.WorksheetNotFound:
+            print("  [Sheets] '월간 대시보드' 시트가 없어 자동 업데이트를 건너뜁니다.")
+            return
+
+        today_dt = datetime.now()
+        month_str = today_dt.strftime("%Y-%m")
+
+        # 채널별 현재 팔로워
+        ig_followers = 0
+        yt_followers = 0
+        tt_followers = 0
+        for s in channel_summaries:
+            ch = s.get("채널", "")
+            f = _safe_int(s.get("팔로워수", 0))
+            if ch == "Instagram":
+                ig_followers = f
+            elif ch == "YouTube":
+                yt_followers = f
+            elif ch == "TikTok":
+                tt_followers = f
+
+        total_followers = ig_followers + yt_followers + tt_followers
+        s_count = sum(stats.get("S", 0) for stats in grade_stats_by_channel.values())
+        upload_count = sum(stats.get("S", 0) + stats.get("A", 0) + stats.get("B", 0) + stats.get("C", 0)
+                           for stats in grade_stats_by_channel.values())
+        s_rate = round(s_count / upload_count * 100, 1) if upload_count else 0
+
+        # 기존 행 찾기
+        all_vals = ws.get_all_values()
+        target_row = None
+        prev_total = None
+        for i, row in enumerate(all_vals[2:], start=3):
+            if len(row) > 0:
+                if row[0] == month_str:
+                    target_row = i
+                elif row[0] and row[0] < month_str and len(row) > 4:
+                    val = _safe_int(row[4]) if row[4] not in ("", "-") else None
+                    if val is not None:
+                        prev_total = val
+
+        monthly_diff = "-"
+        if prev_total is not None:
+            d = total_followers - prev_total
+            monthly_diff = f"+{d}" if d >= 0 else str(d)
+
+        row_data = [
+            month_str,
+            str(ig_followers), str(yt_followers), str(tt_followers),
+            str(total_followers), monthly_diff,
+            str(upload_count), str(s_count),
+            f"{s_rate}%", "-",
+        ]
+
+        if target_row:
+            ws.update(f"A{target_row}:J{target_row}", [row_data])
+            print(f"  [Sheets] 월간 대시보드 업데이트 ({month_str})")
+        else:
+            ws.append_row(row_data, value_input_option="USER_ENTERED")
+            print(f"  [Sheets] 월간 대시보드 신규 추가 ({month_str})")
+
+    except Exception as e:
+        print(f"  [Sheets] 월간 대시보드 자동 업데이트 실패: {e}")
+
+
+def get_weekly_status_data():
+    """주간 채널 현황 시트의 모든 데이터를 읽어옵니다."""
+    if not GOOGLE_SHEET_ID:
+        return []
+    try:
+        client = _get_client()
+        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+        ws = spreadsheet.worksheet("주간 채널 현황")
+        all_vals = ws.get_all_values()
+        if len(all_vals) < 3:
+            return []
+
+        result = []
+        for row in all_vals[2:]:
+            if len(row) >= 13 and row[0]:
+                result.append({
+                    "기준일": row[0],
+                    "주차": row[1],
+                    "IG팔로워": _safe_int(row[2]),
+                    "IG순증": row[3],
+                    "YT구독자": _safe_int(row[4]),
+                    "YT순증": row[5],
+                    "TT팔로워": _safe_int(row[6]),
+                    "TT순증": row[7],
+                    "전체팔로워순증": row[8],
+                    "업로드수": _safe_int(row[9]),
+                    "S급수": _safe_int(row[10]),
+                    "A급수": _safe_int(row[11]),
+                    "S급비율": row[12],
+                })
+        return result
+    except Exception as e:
+        print(f"  [Sheets] 주간 채널 현황 조회 실패: {e}")
+        return []
+
+
+def get_monthly_dashboard_data():
+    """월간 대시보드 시트의 모든 데이터를 읽어옵니다."""
+    if not GOOGLE_SHEET_ID:
+        return []
+    try:
+        client = _get_client()
+        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+        ws = spreadsheet.worksheet("월간 대시보드")
+        all_vals = ws.get_all_values()
+        if len(all_vals) < 3:
+            return []
+
+        result = []
+        for row in all_vals[2:]:
+            if len(row) >= 9 and row[0] and row[0] not in ("-", ""):
+                result.append({
+                    "월": row[0],
+                    "IG팔로워": _safe_int(row[1]),
+                    "YT구독자": _safe_int(row[2]),
+                    "TT팔로워": _safe_int(row[3]),
+                    "전체팔로워합계": _safe_int(row[4]),
+                    "월간팔로워순증": row[5],
+                    "업로드총수": _safe_int(row[6]),
+                    "S급콘텐츠": _safe_int(row[7]),
+                    "S급비율": row[8],
+                })
+        return result
+    except Exception as e:
+        print(f"  [Sheets] 월간 대시보드 조회 실패: {e}")
+        return []
