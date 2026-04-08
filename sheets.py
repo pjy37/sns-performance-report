@@ -400,10 +400,22 @@ def update_weekly_status(channel_summaries, grade_stats_by_channel, prev_week_su
         monday = today_dt - timedelta(days=today_dt.weekday())
         monday_str = monday.strftime("%Y-%m-%d")
 
-        # 주차 계산 (해당 월의 N주차)
-        first_day = datetime(today_dt.year, today_dt.month, 1)
-        week_of_month = (today_dt.day + first_day.weekday()) // 7 + 1
-        week_label = f"{today_dt.month}월 {week_of_month}주차"
+        # 주차 계산: ISO 주차 기준으로 해당 월에서 몇 번째 월요일인지
+        first_of_month = datetime(monday.year, monday.month, 1)
+        # 해당 월의 첫 번째 월요일
+        days_to_first_monday = (7 - first_of_month.weekday()) % 7
+        first_monday = first_of_month + timedelta(days=days_to_first_monday)
+        if monday < first_monday:
+            # 이번 주 월요일이 이번 달 첫 월요일보다 전이면 전월 마지막 주
+            prev_month = (first_of_month - timedelta(days=1))
+            first_of_prev = datetime(prev_month.year, prev_month.month, 1)
+            days_to_first_mon_prev = (7 - first_of_prev.weekday()) % 7
+            first_monday_prev = first_of_prev + timedelta(days=days_to_first_mon_prev)
+            week_num = (monday - first_monday_prev).days // 7 + 1
+            week_label = f"{prev_month.month}월 {week_num}주차"
+        else:
+            week_num = (monday - first_monday).days // 7 + 1
+            week_label = f"{monday.month}월 {week_num}주차"
 
         # 채널별 현재 팔로워
         ig_followers = 0
@@ -426,15 +438,23 @@ def update_weekly_status(channel_summaries, grade_stats_by_channel, prev_week_su
                            for stats in grade_stats_by_channel.values())
         s_rate = round(s_count / upload_count * 100, 1) if upload_count else 0
 
-        # 기존 행 찾기 (같은 기준일이 있으면 업데이트, 없으면 추가)
+        # 기존 행 찾기:
+        # 1순위: 기준일 == monday_str
+        # 2순위: 같은 주차 라벨
+        # 3순위: 같은 기준일이 비어있고 주차만 일치
         all_vals = ws.get_all_values()
         target_row = None
         for i, row in enumerate(all_vals[2:], start=3):
             if len(row) > 0 and row[0] == monday_str:
                 target_row = i
                 break
+        if target_row is None:
+            for i, row in enumerate(all_vals[2:], start=3):
+                if len(row) > 1 and row[1] == week_label:
+                    target_row = i
+                    break
 
-        # 전주 데이터로 순증 계산
+        # 전주 데이터로 순증 계산: 데이터가 있는 가장 최근 행을 찾음
         ig_diff = "-"
         yt_diff = "-"
         tt_diff = "-"
@@ -444,7 +464,9 @@ def update_weekly_status(channel_summaries, grade_stats_by_channel, prev_week_su
         if len(all_vals) > 2:
             last_row = None
             for row in all_vals[2:]:
-                if len(row) > 0 and row[0] and row[0] != monday_str:
+                # 본인 행 제외하고, IG/YT/TT 팔로워 셀이 채워진 행만
+                if (len(row) >= 7 and row[0] and row[0] != monday_str and
+                    (row[2] or row[4] or row[6])):
                     last_row = row
             if last_row and len(last_row) >= 7:
                 prev_ig = _safe_int(last_row[2])
@@ -470,8 +492,9 @@ def update_weekly_status(channel_summaries, grade_stats_by_channel, prev_week_su
         ]
 
         if target_row:
-            ws.update(f"A{target_row}:O{target_row}", [row_data])
-            print(f"  [Sheets] 주간 채널 현황 업데이트 (행 {target_row})")
+            # 메모(O열)는 사용자 입력 보존
+            ws.update(f"A{target_row}:N{target_row}", [row_data[:14]])
+            print(f"  [Sheets] 주간 채널 현황 업데이트 (행 {target_row}, {week_label})")
         else:
             ws.append_row(row_data, value_input_option="USER_ENTERED")
             print(f"  [Sheets] 주간 채널 현황 신규 추가 ({week_label})")
@@ -523,18 +546,30 @@ def update_monthly_dashboard(channel_summaries, grade_stats_by_channel):
                            for stats in grade_stats_by_channel.values())
         s_rate = round(s_count / upload_count * 100, 1) if upload_count else 0
 
-        # 기존 행 찾기
+        # 기존 행 찾기 (월 컬럼이 정확히 YYYY-MM 형식인 행만 처리)
+        # 'S급 콘텐츠 목록' 등 별도 섹션은 건드리지 않음
+        import re
+        month_pattern = re.compile(r'^\d{4}-\d{2}$')
+
         all_vals = ws.get_all_values()
         target_row = None
         prev_total = None
         for i, row in enumerate(all_vals[2:], start=3):
-            if len(row) > 0:
-                if row[0] == month_str:
-                    target_row = i
-                elif row[0] and row[0] < month_str and len(row) > 4:
-                    val = _safe_int(row[4]) if row[4] not in ("", "-") else None
-                    if val is not None:
-                        prev_total = val
+            if len(row) == 0 or not row[0]:
+                continue
+            if not month_pattern.match(row[0]):
+                # 'S급 콘텐츠 목록' 같은 비정상 행을 만나면 중단
+                break
+            if row[0] == month_str:
+                target_row = i
+            elif row[0] < month_str and len(row) > 4:
+                # 전체 팔로워 합계가 유효한 값이면 prev_total 업데이트
+                val = row[4]
+                if val and val not in ("-", ""):
+                    try:
+                        prev_total = int(val.replace(",", ""))
+                    except (ValueError, AttributeError):
+                        pass
 
         monthly_diff = "-"
         if prev_total is not None:
@@ -561,10 +596,15 @@ def update_monthly_dashboard(channel_summaries, grade_stats_by_channel):
 
 
 def get_weekly_status_data():
-    """주간 채널 현황 시트의 모든 데이터를 읽어옵니다."""
+    """주간 채널 현황 시트의 데이터를 읽어옵니다.
+    실제 팔로워 데이터가 있는 행만 반환합니다 (빈 행은 제외).
+    """
     if not GOOGLE_SHEET_ID:
         return []
     try:
+        import re
+        date_pattern = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+
         client = _get_client()
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
         ws = spreadsheet.worksheet("주간 채널 현황")
@@ -574,22 +614,32 @@ def get_weekly_status_data():
 
         result = []
         for row in all_vals[2:]:
-            if len(row) >= 13 and row[0]:
-                result.append({
-                    "기준일": row[0],
-                    "주차": row[1],
-                    "IG팔로워": _safe_int(row[2]),
-                    "IG순증": row[3],
-                    "YT구독자": _safe_int(row[4]),
-                    "YT순증": row[5],
-                    "TT팔로워": _safe_int(row[6]),
-                    "TT순증": row[7],
-                    "전체팔로워순증": row[8],
-                    "업로드수": _safe_int(row[9]),
-                    "S급수": _safe_int(row[10]),
-                    "A급수": _safe_int(row[11]),
-                    "S급비율": row[12],
-                })
+            # 기준일이 YYYY-MM-DD 형식이 아니면 스킵
+            if len(row) < 13 or not row[0] or not date_pattern.match(row[0]):
+                continue
+
+            # 팔로워 데이터가 모두 비어있는 미래 주는 제외
+            ig_raw = row[2] if len(row) > 2 else ""
+            yt_raw = row[4] if len(row) > 4 else ""
+            tt_raw = row[6] if len(row) > 6 else ""
+            if not (ig_raw or yt_raw or tt_raw):
+                continue
+
+            result.append({
+                "기준일": row[0],
+                "주차": row[1],
+                "IG팔로워": _safe_int(row[2]),
+                "IG순증": row[3] or "-",
+                "YT구독자": _safe_int(row[4]),
+                "YT순증": row[5] or "-",
+                "TT팔로워": _safe_int(row[6]),
+                "TT순증": row[7] or "-",
+                "전체팔로워순증": row[8] or "-",
+                "업로드수": _safe_int(row[9]),
+                "S급수": _safe_int(row[10]),
+                "A급수": _safe_int(row[11]),
+                "S급비율": row[12] or "0%",
+            })
         return result
     except Exception as e:
         print(f"  [Sheets] 주간 채널 현황 조회 실패: {e}")
@@ -597,10 +647,15 @@ def get_weekly_status_data():
 
 
 def get_monthly_dashboard_data():
-    """월간 대시보드 시트의 모든 데이터를 읽어옵니다."""
+    """월간 대시보드 시트의 데이터를 읽어옵니다.
+    실제 데이터가 있는 행만 반환합니다 (미래 월/별도 섹션 제외).
+    """
     if not GOOGLE_SHEET_ID:
         return []
     try:
+        import re
+        month_pattern = re.compile(r'^\d{4}-\d{2}$')
+
         client = _get_client()
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
         ws = spreadsheet.worksheet("월간 대시보드")
@@ -610,18 +665,29 @@ def get_monthly_dashboard_data():
 
         result = []
         for row in all_vals[2:]:
-            if len(row) >= 9 and row[0] and row[0] not in ("-", ""):
-                result.append({
-                    "월": row[0],
-                    "IG팔로워": _safe_int(row[1]),
-                    "YT구독자": _safe_int(row[2]),
-                    "TT팔로워": _safe_int(row[3]),
-                    "전체팔로워합계": _safe_int(row[4]),
-                    "월간팔로워순증": row[5],
-                    "업로드총수": _safe_int(row[6]),
-                    "S급콘텐츠": _safe_int(row[7]),
-                    "S급비율": row[8],
-                })
+            # 월 컬럼이 YYYY-MM 형식이 아니면 (S급 콘텐츠 목록 등) 중단
+            if len(row) < 9 or not row[0]:
+                continue
+            if not month_pattern.match(row[0]):
+                # 별도 섹션 시작이면 중단
+                break
+
+            # 전체 팔로워 합계가 비어있거나 '-' 인 미래 월은 제외
+            total = row[4] if len(row) > 4 else ""
+            if not total or total in ("-", "0"):
+                continue
+
+            result.append({
+                "월": row[0],
+                "IG팔로워": _safe_int(row[1]),
+                "YT구독자": _safe_int(row[2]),
+                "TT팔로워": _safe_int(row[3]),
+                "전체팔로워합계": _safe_int(row[4]),
+                "월간팔로워순증": row[5] or "-",
+                "업로드총수": _safe_int(row[6]),
+                "S급콘텐츠": _safe_int(row[7]),
+                "S급비율": row[8] or "0%",
+            })
         return result
     except Exception as e:
         print(f"  [Sheets] 월간 대시보드 조회 실패: {e}")
