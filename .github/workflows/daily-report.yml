@@ -2,8 +2,10 @@ name: Daily SNS Performance Report
 
 on:
   schedule:
-    # 매일 한국시간 오전 9시 (UTC 0시)
+    # 한국시간 오전 9시(UTC 0시), 오후 3시(UTC 6시), 오후 9시(UTC 12시) - 하루 3회
     - cron: '0 0 * * *'
+    - cron: '0 6 * * *'
+    - cron: '0 12 * * *'
   push:
     branches: [main]  # 코드 push 시 자동 실행
   workflow_dispatch:  # 수동 실행 가능
@@ -63,6 +65,11 @@ jobs:
           fi
           # TikTok 도메인 인증 파일 복사
           cp tiktokcxgdO5gKkR8iXROaQljrvic7xYJc678o.txt docs/ 2>/dev/null || true
+          # 빌드 시각 표시 (캐시 무효화 + 사용자에게 마지막 업데이트 시간 표시)
+          BUILD_TIME=$(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M:%S KST')
+          sed -i "s|<title>|<!-- Build: $BUILD_TIME -->\n<title>|" docs/index.html
+          # 헤더 부제목에 마지막 업데이트 시각 추가
+          sed -i "s|자동 생성 리포트|자동 생성 리포트 · 마지막 업데이트: $BUILD_TIME|" docs/index.html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
