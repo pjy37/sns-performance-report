@@ -36,11 +36,53 @@ from grader import apply_grades, detect_anomalies, calculate_channel_grade_stats
 from ai_insights import generate_daily_insight, generate_content_recommendations
 
 
+def check_token_expiry():
+    """Instagram 토큰 만료일을 체크하고 경고를 반환합니다."""
+    import requests as req
+    from config import META_PAGE_ACCESS_TOKEN
+    if not META_PAGE_ACCESS_TOKEN:
+        return None
+
+    try:
+        resp = req.get(f"https://graph.facebook.com/v21.0/debug_token",
+            params={"input_token": META_PAGE_ACCESS_TOKEN, "access_token": META_PAGE_ACCESS_TOKEN},
+            timeout=10)
+        data = resp.json().get("data", {})
+        expires_at = data.get("expires_at", 0)
+        if not expires_at:
+            return None
+
+        from datetime import datetime as dt
+        exp_date = dt.fromtimestamp(expires_at)
+        now = dt.now()
+        days_left = (exp_date - now).days
+
+        if days_left <= 0:
+            return {"level": "error", "days": days_left, "date": exp_date.strftime("%Y-%m-%d"),
+                    "message": f"Instagram 토큰이 만료되었습니다! 토큰을 재발급해주세요."}
+        elif days_left <= 7:
+            return {"level": "warning", "days": days_left, "date": exp_date.strftime("%Y-%m-%d"),
+                    "message": f"Instagram 토큰이 {days_left}일 후 만료됩니다 ({exp_date.strftime('%m/%d')}). 곧 재발급이 필요합니다."}
+        elif days_left <= 14:
+            return {"level": "info", "days": days_left, "date": exp_date.strftime("%Y-%m-%d"),
+                    "message": f"Instagram 토큰 만료까지 {days_left}일 남음 ({exp_date.strftime('%m/%d')})"}
+        return None
+    except Exception:
+        return None
+
+
 def main():
     print(f"{'=' * 60}")
     print(f"  SNS 성과 일일 리포트 - {today}")
     print(f"  실행 시각: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'=' * 60}")
+
+    # ── 토큰 만료 체크 ──
+    token_warning = check_token_expiry()
+    if token_warning:
+        level = token_warning["level"]
+        icon = {"error": "🚨", "warning": "⚠️", "info": "ℹ️"}.get(level, "")
+        print(f"\n  {icon} {token_warning['message']}")
 
     # ── 1단계: 게시물별 성과 수집 ──
     print("\n[1/5] 게시물별 성과 수집 중...")
@@ -210,6 +252,9 @@ def main():
 
     try:
         send_slack_report(analysis)
+        # 토큰 만료 경고 Slack 알림
+        if token_warning and token_warning.get("level") in ("error", "warning"):
+            send_error_notification(f"🔑 {token_warning['message']}")
     except Exception as e:
         msg = f"슬랙 전송 실패: {e}"
         print(f"  [Slack] {msg}")
@@ -243,6 +288,7 @@ def main():
             monthly_data=monthly_summary_data,
             weekly_status=weekly_status_data,
             monthly_dashboard=monthly_dashboard_data,
+            token_warning=token_warning,
         )
     except Exception as e:
         msg = f"HTML 보고서 생성 실패: {e}"

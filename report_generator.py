@@ -725,7 +725,7 @@ def _build_monthly_dashboard_section(monthly_dashboard):
 
 def generate_html_report(analysis, channel_summaries, channel_posts, recent_post_data, recent_summary_data,
                          grade_stats=None, anomalies=None, ai_data=None, monthly_data=None,
-                         weekly_status=None, monthly_dashboard=None):
+                         weekly_status=None, monthly_dashboard=None, token_warning=None):
     """HTML 보고서를 생성합니다."""
     _ensure_reports_dir()
 
@@ -742,6 +742,19 @@ def generate_html_report(analysis, channel_summaries, channel_posts, recent_post
 
     # 요약 맵 생성
     summary_map = {s.get("채널", ""): s for s in channel_summaries}
+
+    # 토큰 만료 경고 배너
+    token_banner = ""
+    if token_warning:
+        level = token_warning.get("level", "info")
+        msg = token_warning.get("message", "")
+        colors_map = {
+            "error": ("background:#fee2e2;border:1px solid #fca5a5;color:#991b1b", "🚨"),
+            "warning": ("background:#fef3c7;border:1px solid #fcd34d;color:#92400e", "⚠️"),
+            "info": ("background:#eff6ff;border:1px solid #93c5fd;color:#1e40af", "ℹ️"),
+        }
+        style, icon = colors_map.get(level, colors_map["info"])
+        token_banner = f'<div style="{style};padding:12px 20px;border-radius:8px;margin:24px auto;max-width:1200px;font-size:14px;font-weight:600">{icon} {msg}</div>'
 
     # 새 섹션 HTML
     ai_section_html = _build_ai_insight_section(ai_data)
@@ -960,6 +973,8 @@ td a:hover {{ text-decoration:underline; }}
         <a href="https://docs.google.com/spreadsheets/d/1A3InkFr2YXJWy6_B0FKWsglMcrlSrC4CUSdi4xet788" target="_blank">Google Sheets</a>
     </div>
 </div>
+
+{token_banner}
 
 <!-- 탭 네비게이션 -->
 <div class="tab-nav">
